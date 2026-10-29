@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f5f5f2">
+<title>Мой бюджет</title>
+<style>
+:root{--bg:#f5f5f2;--card:#fff;--ink:#252a25;--muted:#777d75;--line:#e5e8e1;--green:#237a57;--red:#c94b48}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,sans-serif}
+button,input,select,textarea{font:inherit}
+button{border:0;border-radius:12px;padding:11px 14px;background:#25342b;color:white;cursor:pointer;font-weight:650}
+.secondary{background:#e9ede7;color:#25342b}
+.danger{background:#fff0ef;color:#a83230}
+.wrap{max-width:900px;margin:auto;padding:18px 14px 60px}
+header,.row,.between,.tabs,.actions{display:flex;align-items:center;gap:10px}
+header,.between{justify-content:space-between}
+header{margin-bottom:18px}
+h1{font-size:22px;margin:0}h2{font-size:19px;margin:0 0 12px}
+.muted{color:var(--muted);font-size:13px}
+.status{font-size:12px;text-align:right;color:var(--green)}
+.tabs{overflow:auto;margin-bottom:15px}
+.tabs button{white-space:nowrap;background:transparent;color:var(--muted)}
+.tabs button.active{background:#25342b;color:white}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;min-width:0}
+.label{font-size:13px;color:var(--muted)}
+.big{font-size:clamp(21px,4vw,29px);font-weight:750;margin-top:7px;overflow-wrap:anywhere}
+.green{color:var(--green)}.red{color:var(--red)}
+.section{margin-top:20px}
+.tx,.category{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.tx:last-child,.category:last-child{border-bottom:0}
+.dot{width:40px;height:40px;flex:none;border-radius:13px;display:grid;place-items:center;font-size:20px}
+.txmain{flex:1;min-width:0}.txmain strong{display:block;overflow-wrap:anywhere}
+.txmain small{color:var(--muted)}
+.amount{font-weight:750;white-space:nowrap}
+.actions button{padding:7px 9px;font-size:12px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:13px;color:var(--muted)}
+input,select,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:11px;background:white;color:var(--ink)}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.full{grid-column:1/-1}
+.empty{text-align:center;padding:24px;color:var(--muted)}
+.auth{max-width:420px;margin:8vh auto;background:white;padding:22px;border-radius:20px;border:1px solid var(--line)}
+.notice{background:#edf2eb;padding:11px;border-radius:11px;font-size:13px;margin-top:12px}
+.warn{background:#fff0df;color:#80541d}
+.bar{height:10px;background:#e9ede7;border-radius:9px;overflow:hidden;margin:8px 0}
+.bar span{display:block;height:100%;border-radius:9px}
+.hidden{display:none!important}
+@media(max-width:580px){.wrap{padding:12px}.grid{grid-template-columns:1fr}.grid .big{font-size:24px}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}header{align-items:flex-start}.actions{gap:4px}.amount{font-size:14px}}
+</style>
+</head>
+<body>
+<div id="auth" class="auth">
+  <h1>🌿 Мой бюджет</h1>
+  <p class="muted">Личные финансы с автоматическим сохранением</p>
+  <h2 id="authHeading">Вход</h2>
+  <form id="authForm">
+    <div class="field"><label>Электронная почта</label><input id="email" type="email" required autocomplete="email"></div>
+    <div class="field"><label>Пароль (минимум 6 символов)</label><input id="password" type="password" minlength="6" required autocomplete="current-password"></div>
+    <button id="authSubmit">Войти</button>
+    <button id="authToggle" class="secondary" type="button">Создать аккаунт</button>
+  </form>
+  <div id="authMessage" class="notice">Войди или создай новый аккаунт.</div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header>
+    <div><h1>🌿 Мой бюджет</h1><div id="userEmail" class="muted"></div></div>
+    <div><div id="syncStatus" class="status">Подключение…</div><button id="logout" class="secondary">Выйти</button></div>
+  </header>
+  <nav class="tabs">
+    <button class="active" data-tab="home">Главная</button>
+    <button data-tab="ops">Операции</button>
+    <button data-tab="cats">Категории</button>
+    <button data-tab="stats">Статистика</button>
+    <button data-tab="settings">Настройки</button>
+  </nav>
+  <main id="main"></main>
+</div>
+<div id="modal"></div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,setDoc,onSnapshot,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyAEG_D1AzW3eOXCZStuF7w96AZ5lQrjUIw",
+ authDomain:"rashody-72837.firebaseapp.com",
+ projectId:"rashody-72837",
+ storageBucket:"rashody-72837.firebasestorage.app",
+ messagingSenderId:"519636263745",
+ appId:"1:519636263745:web:6c397e334fe28f655677c0"
+};
+
+const fb=initializeApp(firebaseConfig);
+const auth=getAuth(fb);
+const db=getFirestore(fb);
+const $=id=>document.getElementById(id);
+const today=()=>new Date().toISOString().slice(0,10);
+const money=n=>new Intl.NumberFormat("ru-RU",{style:"currency",currency:state.currency||"EUR"}).format(Number(n)||0);
+const defaultCats=[
+ {id:"food",name:"Продукты",type:"expense",emoji:"🛒",color:"#e7f1cf"},
+ {id:"home",name:"Дом и счета",type:"expense",emoji:"🏠",color:"#dce9fb"},
+ {id:"transport",name:"Транспорт",type:"expense",emoji:"🚗",color:"#fbe5ce"},
+ {id:"health",name:"Здоровье",type:"expense",emoji:"💊",color:"#f6dfe8"},
+ {id:"fun",name:"Развлечения",type:"expense",emoji:"🎬",color:"#e8defb"},
+ {id:"shopping",name:"Покупки",type:"expense",emoji:"🛍️",color:"#f9e4cf"},
+ {id:"salary",name:"Зарплата",type:"income",emoji:"💼",color:"#dcefe4"},
+ {id:"otherincome",name:"Другие доходы",type:"income",emoji:"✨",color:"#e1efed"},
+ {id:"other",name:"Прочее",type:"expense",emoji:"📦",color:"#e8eae6"}
+];
+const fresh=()=>({currency:"EUR",transactions:[],categories:structuredClone(defaultCats)});
+let state=fresh(),user=null,unsubscribe=null,saveTimer=null,mode="login",tab="home",cloudLoaded=false;
+const localKey=uid=>"budget-local-v1-"+uid;
+const userDoc=()=>doc(db,"users",user.uid,"budget","state");
+
+function status(text,isError=false){$("syncStatus").textContent=text;$("syncStatus").style.color=isError?"#c94b48":"#237a57"}
+function say(text,error=false){$("authMessage").textContent=text;$("authMessage").className="notice"+(error?" warn":"")}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function color(v){return /^#[0-9a-f]{3,8}$/i.test(v||"")?v:"#e8eae6"}
+function normalize(s){if(!s||typeof s!=="object")return fresh();return {currency:["EUR","USD","RUB","GBP"].includes(s.currency)?s.currency:"EUR",transactions:Array.isArray(s.transactions)?s.transactions:[],categories:Array.isArray(s.categories)&&s.categories.length?s.categories:structuredClone(defaultCats)}}
+function persistLocal(){try{localStorage.setItem(localKey(user.uid),JSON.stringify(state))}catch(e){status("Ошибка локального сохранения",true)}}
+function save(){
+ if(!user)return;
+ persistLocal();status("Сохранение…");clearTimeout(saveTimer);
+ saveTimer=setTimeout(async()=>{
+  const snapshot=JSON.parse(JSON.stringify(state));
+  try{await setDoc(userDoc(),{data:snapshot,updatedAt:serverTimestamp(),schemaVersion:1});status("Сохранено в облаке")}
+  catch(e){console.error(e);status("Ошибка облака — проверь интернет и правила",true)}
+ },500);
+}
+function change(fn){fn();save();render()}
+function total(type){return state.transactions.filter(t=>t.type===type).reduce((s,t)=>s+Number(t.amount||0),0)}
+function balance(){return total("income")-total("expense")}
+function category(id){return state.categories.find(c=>c.id===id)||{name:"Без категории",emoji:"📦",color:"#e8eae6"}}
+function dateText(s){if(!s)return"";const a=s.split("-");return a.length===3?`${a[2]}.${a[1]}.${a[0]}`:s}
+function summary(label,value,cls=""){return `<div class="card"><div class="label">${label}</div><div class="big ${cls}">${value}</div></div>`}
+function txHtml(t,editable=true){const c=category(t.categoryId);return `<div class="tx"><div class="dot" style="background:${color(c.color)}">${esc(c.emoji)}</div><div class="txmain"><strong>${esc(t.title||c.name)}</strong><small>${esc(c.name)} · ${dateText(t.date)}${t.note?" · "+esc(t.note):""}</small></div><div class="amount ${t.type==="income"?"green":"red"}">${t.type==="income"?"+":"−"}${money(t.amount)}</div>${editable?`<div class="actions"><button class="secondary" data-edit="${esc(t.id)}">Изм.</button></div>`:""}</div>`}
+function render(){
+ if(!user)return;
+ document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+ const tx=[...state.transactions].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+ if(tab==="home"){
+  $("main").innerHTML=`<div class="grid">${summary("Остаток",money(balance()),balance()>=0?"green":"red")}${summary("Доходы",money(total("income")),"green")}${summary("Расходы",money(total("expense")),"red")}</div><section class="section"><div class="between row"><h2>Последние операции</h2><button data-goto="ops">Все</button></div><div class="card">${tx.length?tx.slice(0,5).map(t=>txHtml(t,false)).join(""):'<div class="empty">Пока нет операций</div>'}</div></section><div class="row"><button data-add="expense" style="flex:1">＋ Расход</button><button data-add="income" class="secondary" style="flex:1">＋ Доход</button></div>`;
+ }else if(tab==="ops"){
+  $("main").innerHTML=`<div class="between row"><h2>Операции</h2><div class="row"><button data-add="expense">＋ Расход</button><button data-add="income" class="secondary">＋ Доход</button></div></div><div class="card">${tx.length?tx.map(t=>txHtml(t)).join(""):'<div class="empty">Операций пока нет</div>'}</div>`;
+ }else if(tab==="cats"){
+  $("main").innerHTML=`<div class="between row"><h2>Категории</h2><button data-catnew>＋ Добавить</button></div><div class="card"><h3>Расходы</h3>${state.categories.filter(c=>c.type==="expense").map(catHtml).join("")}<h3>Доходы</h3>${state.categories.filter(c=>c.type==="income").map(catHtml).join("")}</div>`;
+ }else if(tab==="stats"){
+  const exp=total("expense"),inc=total("income");
+  const cs=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:state.transactions.filter(t=>t.type==="expense"&&t.categoryId===c.id).reduce((s,t)=>s+Number(t.amount||0),0)})).filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
+  const max=Math.max(1,...cs.map(c=>c.sum));
+  $("main").innerHTML=`<div class="grid">${summary("Доходы",money(inc),"green")}${summary("Расходы",money(exp),"red")}${summary("Разница",money(inc-exp),inc>=exp?"green":"red")}</div><section class="section"><h2>Расходы по категориям</h2><div class="card">${cs.length?cs.map(c=>`<div><div class="between row"><span>${esc(c.emoji)} ${esc(c.name)}</span><b>${money(c.sum)}</b></div><div class="bar"><span style="width:${c.sum/max*100}%;background:${color(c.color)}"></span></div></div>`).join(""):'<div class="empty">Добавь расходы, чтобы увидеть статистику</div>'}</div></section>`;
+ }else{
+  $("main").innerHTML=`<h2>Настройки</h2><div class="card"><div class="field"><label>Валюта</label><select id="currency"><option value="EUR">EUR — евро</option><option value="USD">USD — доллар</option><option value="RUB">RUB — рубль</option><option value="GBP">GBP — фунт</option></select></div><button id="saveCurrency">Сохранить валюту</button><hr style="border:0;border-top:1px solid #e5e8e1;margin:18px 0"><p class="muted">Аккаунт: ${esc(user.email||"")}</p><button class="secondary" id="export">Экспорт JSON</button><label class="secondary" style="display:inline-block;padding:11px 14px;border-radius:12px;cursor:pointer">Импорт JSON<input type="file" id="import" accept=".json,application/json" hidden></label></div>`;
+  $("currency").value=state.currency;
+  $("saveCurrency").onclick=()=>change(()=>state.currency=$("currency").value);
+  $("export").onclick=exportData;
+  $("import").onchange=importData;
+ }
+ document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.goto;render()});
+ document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openTx(null,b.dataset.add));
+ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openTx(b.dataset.edit));
+ document.querySelectorAll("[data-catnew]").forEach(b=>b.onclick=()=>openCat());
+ document.querySelectorAll("[data-editcat]").forEach(b=>b.onclick=()=>openCat(b.dataset.editcat));
+ document.querySelectorAll("[data-delcat]").forEach(b=>b.onclick=()=>deleteCat(b.dataset.delcat));
+}
+function catHtml(c){return `<div class="category"><div class="dot" style="background:${color(c.color)}">${esc(c.emoji)}</div><strong style="flex:1">${esc(c.name)}</strong><button class="secondary" data-editcat="${c.id}">Изм.</button><button class="danger" data-delcat="${c.id}">×</button></div>`}
+function closeModal(){$("modal").innerHTML=""}
+function openTx(id=null,type="expense"){
+ const old=id?state.transactions.find(t=>t.id===id):null;
+ const chosenType=old?.type||type;
+ const cats=state.categories.filter(c=>c.type===chosenType);
+ $("modal").innerHTML=`<div style="position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:12px;z-index:5"><div class="card" style="width:min(560px,100%);max-height:90vh;overflow:auto"><div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div><form id="txForm"><div class="formgrid"><div class="field full"><label>Название</label><input name="title" required maxlength="80" value="${esc(old?.title||"")}" placeholder="Например, супермаркет"></div><div class="field"><label>Тип</label><select name="type" id="txType"><option value="expense" ${chosenType==="expense"?"selected":""}>Расход</option><option value="income" ${chosenType==="income"?"selected":""}>Доход</option></select></div><div class="field"><label>Сумма</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}"></div><div class="field"><label>Категория</label><select name="categoryId" id="txCat">${cats.map(c=>`<option value="${c.id}" ${old?.categoryId===c.id?"selected":""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")}</select></div><div class="field"><label>Дата</label><input name="date" type="date" required value="${esc(old?.date||today())}"></div><div class="field full"><label>Комментарий</label><textarea name="note" rows="2">${esc(old?.note||"")}</textarea></div></div><button>Сохранить</button>${old?'<button type="button" class="danger" id="deleteTx">Удалить</button>':""}</form></div></div>`;
+ $("close").onclick=closeModal;
+ $("txType").onchange=()=>{$("txCat").innerHTML=state.categories.filter(c=>c.type===$("txType").value).map(c=>`<option value="${c.id}">${esc(c.emoji)} ${esc(c.name)}</option>`).join("")};
+ $("txForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));if(!(amount>0))return alert("Сумма должна быть больше нуля");const t={id:old?.id||crypto.randomUUID(),title:String(f.get("title")).trim(),type:f.get("type"),amount,date:f.get("date"),categoryId:f.get("categoryId"),note:String(f.get("note")||"").trim()};change(()=>{if(old)state.transactions=state.transactions.map(x=>x.id===old.id?t:x);else state.transactions.push(t)});closeModal()};
+ if(old)$("deleteTx").onclick=()=>{if(confirm("Удалить операцию?")){change(()=>state.transactions=state.transactions.filter(t=>t.id!==old.id));closeModal()}};
+}
+function openCat(id=null){
+ const old=id?state.categories.find(c=>c.id===id):null;
+ $("modal").innerHTML=`<div style="position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:12px;z-index:5"><div class="card" style="width:min(500px,100%)"><div class="between row"><h2>${old?"Изменить":"Новая"} категория</h2><button class="secondary" id="close">Закрыть</button></div><form id="catForm"><div class="field"><label>Название</label><input name="name" required maxlength="45" value="${esc(old?.name||"")}"></div><div class="field"><label>Тип</label><select name="type" ${old?"disabled":""}><option value="expense" ${old?.type!=="income"?"selected":""}>Расход</option><option value="income" ${old?.type==="income"?"selected":""}>Доход</option></select></div><div class="field"><label>Эмодзи</label><input name="emoji" maxlength="4" required value="${esc(old?.emoji||"📌")}"></div><div class="field"><label>Цвет</label><input name="color" type="color" value="${color(old?.color||"#dcefe4")}"></div><button>Сохранить</button></form></div></div>`;
+ $("close").onclick=closeModal;
+ $("catForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.currentTarget),c={id:old?.id||crypto.randomUUID(),name:String(f.get("name")).trim(),type:old?.type||f.get("type"),emoji:String(f.get("emoji")||"📌"),color:f.get("color")};change(()=>{if(old)state.categories=state.categories.map(x=>x.id===old.id?c:x);else state.categories.push(c)});closeModal()};
+}
+function deleteCat(id){const c=category(id);if(state.transactions.some(t=>t.categoryId===id))return alert("Сначала измени категорию у связанных операций.");if(confirm(`Удалить категорию «${c.name}»?`))change(()=>state.categories=state.categories.filter(c=>c.id!==id))}
+function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a"),url=URL.createObjectURL(blob);a.href=url;a.download="my-budget-backup.json";a.click();URL.revokeObjectURL(url)}
+function importData(e){const file=e.target.files?.[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const n=normalize(JSON.parse(r.result));if(confirm("Импорт заменит текущие данные. Продолжить?"))change(()=>state=n)}catch{alert("Не удалось прочитать файл")}};r.readAsText(file);e.target.value=""}
+
+$("authToggle").onclick=()=>{mode=mode==="login"?"register":"login";$("authHeading").textContent=mode==="login"?"Вход":"Создать аккаунт";$("authSubmit").textContent=mode==="login"?"Войти":"Зарегистрироваться";$("authToggle").textContent=mode==="login"?"Создать аккаунт":"У меня уже есть аккаунт";$("password").autocomplete=mode==="login"?"current-password":"new-password"};
+$("authForm").onsubmit=async e=>{e.preventDefault();$("authSubmit").disabled=true;say("Подключение…");try{const email=$("email").value.trim(),password=$("password").value;if(mode==="register")await createUserWithEmailAndPassword(auth,email,password);else await signInWithEmailAndPassword(auth,email,password)}catch(e){console.error(e);let msg=e.message;if(e.code==="auth/email-already-in-use")msg="Этот адрес уже зарегистрирован — войди в аккаунт.";if(e.code==="auth/invalid-credential")msg="Неверная почта или пароль.";if(e.code==="auth/operation-not-allowed")msg="Включи Email/Password в Firebase Authentication.";say(msg,true)}finally{$("authSubmit").disabled=false}};
+$("logout").onclick=()=>signOut(auth);
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+
+onAuthStateChanged(auth,async u=>{
+ if(unsubscribe){unsubscribe();unsubscribe=null}
+ user=u;cloudLoaded=false;
+ if(!u){$("app").classList.add("hidden");$("auth").classList.remove("hidden");return}
+ $("auth").classList.add("hidden");$("app").classList.remove("hidden");$("userEmail").textContent=u.email||"Личный аккаунт";
+ status("Загрузка…");
+ const key=localKey(u.uid),local=localStorage.getItem(key);
+ state=local?normalize(JSON.parse(local)):fresh();render();
+ const ref=userDoc();
+ try{
+  const snap=await getDoc(ref);
+  if(snap.exists()){state=normalize(snap.data().data);persistLocal();render()}
+  else await setDoc(ref,{data:state,updatedAt:serverTimestamp(),schemaVersion:1});
+  cloudLoaded=true;status("Сохранено в облаке");
+ }catch(e){console.error(e);status("Ошибка облака — проверь настройки",true)}
+ unsubscribe=onSnapshot(ref,snap=>{
+  if(!snap.exists())return;
+  // Don't overwrite edits that are waiting to be uploaded.
+  if(saveTimer)return;
+  state=normalize(snap.data().data);persistLocal();render();status("Синхронизировано");
+ },e=>{console.error(e);status("Ошибка синхронизации",true)});
+});
+</script>
+</body>
+</html>
