@@ -80,7 +80,7 @@ input[type=color]{width:58px;height:58px;padding:4px;border-radius:50%;border:2p
 .day-col{height:100%;min-width:0;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:5px}
 .day-bar{width:100%;max-width:19px;min-height:2px;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#9c83ef,#7057d9)}
 .day-label{font-size:10px;color:var(--muted)}
-.emoji-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin-top:10px;max-height:230px;overflow:auto;padding:3px}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin-top:10px;padding:3px}
 .emoji-option{background:#f5f2ff;color:#38304e;border:2px solid transparent;border-radius:12px;padding:8px 2px;font-size:22px}
 .emoji-option.selected{border-color:var(--purple);background:#e9e2ff}
 .emoji-group{font-size:12px;color:var(--muted);font-weight:700;margin:12px 0 4px}
@@ -142,7 +142,7 @@ import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmai
 import {getFirestore,doc,getDoc,setDoc,onSnapshot,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig={
-apiKey: "AIzaSyDNwgu0ESNjpsteOss8uM8VYSHL8wE4lJw",
+ apiKey:"AIzaSyAEG_D1AzW3eOXCZStu7Fw96AZ5lQrjUIw",
  authDomain:"rashody-72837.firebaseapp.com",
  projectId:"rashody-72837",
  storageBucket:"rashody-72837.firebasestorage.app",
@@ -320,14 +320,7 @@ function render(){
     <p class="chart-caption">Высота столбцов сглажена, чтобы крупные расходы не скрывали остальные дни.</p>
    </div>
   </section>
-  <section class="section"><h2>Расходы и доходы</h2>
-   <div class="card">
-    <div class="between row"><span>Доходы</span><b class="green">${money(inc)}</b></div>
-    <div class="bar"><span style="width:${inc+exp?inc/(inc+exp)*100:0}%;background:#36b98d"></span></div>
-    <div class="between row"><span>Расходы</span><b class="red">${money(exp)}</b></div>
-    <div class="bar"><span style="width:${inc+exp?exp/(inc+exp)*100:0}%;background:#ed7186"></span></div>
-   </div>
-  </section>`;
+`;
   $("prevMonth").onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);render()};
   $("nextMonth").onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);render()};
  }
@@ -430,21 +423,27 @@ function openCat(id=null){
      <option value="expense" ${old?.type!=="income"?"selected":""}>Расход</option>
      <option value="income" ${old?.type==="income"?"selected":""}>Доход</option>
     </select></div>
-    <div class="field"><label>Выбранный значок: <span id="emojiSelected" class="emoji-selected">${selectedEmoji}</span></label>
+    <div class="field"><label>Значок</label>
+     <div class="row" style="align-items:center;gap:10px">
+      <span id="emojiSelected" class="emoji-selected">${selectedEmoji}</span>
+      <button type="button" class="secondary" id="toggleEmojiPicker">Выбрать значок</button>
+     </div>
      <input type="hidden" name="emoji" id="emojiValue" value="${selectedEmoji}">
-     <div id="emojiPicker"></div>
+     <div id="emojiPicker" class="hidden"></div>
     </div>
-    <div class="field"><label>Цвет категории</label><div class="color-row">
+    <div class="field"><label>Цвет категории</label>
      <input name="color" id="catColor" type="color" value="${color(old?.color||"#b9a8f5")}">
-     <span class="color-preview" id="catColorPreview" style="background:${color(old?.color||"#b9a8f5")}"></span>
-     <span class="muted">Выбранный цвет</span>
-    </div></div>
+    </div>
     <button>Сохранить</button>
    </form>
   </div>
  </div>`;
  $("close").onclick=closeModal;
  const picker=$("emojiPicker");
+ $("toggleEmojiPicker").onclick=()=>{
+  picker.classList.toggle("hidden");
+  $("toggleEmojiPicker").textContent=picker.classList.contains("hidden")?"Выбрать значок":"Скрыть значки";
+ };
  picker.innerHTML=Object.entries(emojiGroups).map(([group,emojis])=>
   `<div class="emoji-group">${group}</div><div class="emoji-grid">${emojis.map(em=>`<button type="button" class="emoji-option ${em===selectedEmoji?"selected":""}" data-emoji="${em}">${em}</button>`).join("")}</div>`
  ).join("");
@@ -453,7 +452,6 @@ function openCat(id=null){
   $("emojiSelected").textContent=b.dataset.emoji;
   picker.querySelectorAll(".emoji-option").forEach(x=>x.classList.toggle("selected",x===b));
  });
- $("catColor").oninput=()=>{$("catColorPreview").style.background=$("catColor").value};
  $("catForm").onsubmit=e=>{
   e.preventDefault();
   const f=new FormData(e.currentTarget);
