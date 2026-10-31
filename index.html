@@ -63,8 +63,8 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 .notice{background:var(--purple2);padding:12px;border-radius:12px;font-size:13px;margin-top:12px}
 .warn{background:var(--redbg);color:#a83248}
 .hidden{display:none!important}
-input[type=color]{width:58px;height:58px;padding:4px;border-radius:50%;border:2px solid #ddd5f4;overflow:hidden;background:white;cursor:pointer}
-.color-preview{width:46px;height:46px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #d9d2eb}
+input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px;padding:3px;border:1px solid #ddd5f4;border-radius:8px;overflow:hidden;background:white;cursor:pointer}input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:0;border-radius:4px}
+.color-preview{width:46px;height:46px;border-radius:6px;border:0;box-shadow:none}
 .color-row{display:flex;align-items:center;gap:13px}
 .month-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:5px 0 15px}
 .month-nav button{width:44px;height:44px;padding:0;font-size:24px}
@@ -76,9 +76,9 @@ input[type=color]{width:58px;height:58px;padding:4px;border-radius:50%;border:2p
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .pie{width:min(230px,65vw);aspect-ratio:1;border-radius:50%;margin:8px auto;position:relative}
 .pie-hole{position:absolute;inset:27%;background:white;border-radius:50%;display:grid;place-items:center;text-align:center;padding:5px}
-.daily-chart{display:grid;grid-template-columns:repeat(31,minmax(0,1fr));gap:4px;align-items:end;height:160px;overflow:hidden;padding:8px 2px 0}
-.day-col{height:100%;min-width:0;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:5px}
-.day-bar{width:100%;max-width:19px;min-height:2px;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#9c83ef,#7057d9)}
+.daily-chart{display:flex;gap:10px;align-items:end;height:180px;overflow:hidden;padding:8px 2px 0}
+.day-col{height:100%;min-width:42px;flex:1;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:5px;cursor:pointer}
+.day-bar{width:28px;max-width:100%;min-height:2px;border-radius:6px 6px 2px 2px;overflow:hidden;display:flex;flex-direction:column-reverse;background:#eeeaf5}.day-segment{width:100%;min-height:0}
 .day-label{font-size:10px;color:var(--muted)}
 .emoji-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin-top:10px;padding:3px}
 .emoji-option{background:#f5f2ff;color:#38304e;border:2px solid transparent;border-radius:12px;padding:8px 2px;font-size:22px}
@@ -89,7 +89,7 @@ input[type=color]{width:58px;height:58px;padding:4px;border-radius:50%;border:2p
 .add-buttons button{flex:1}
 .add-income{background:linear-gradient(135deg,#159a78,#36bd91)}
 .add-expense{background:linear-gradient(135deg,#d94f70,#f0788e)}
-.chart-caption{text-align:center;color:var(--muted);font-size:12px}
+.chart-caption{text-align:center;color:var(--muted);font-size:12px}.day-slider{width:100%;margin-top:14px}.day-total{font-weight:750;text-align:center;margin-top:8px}.emoji-modal{position:fixed;inset:0;background:#211b36;z-index:20;display:flex;flex-direction:column;padding:12px;overflow:hidden}.emoji-modal-head{display:flex;align-items:center;justify-content:space-between;color:white;padding:5px 2px 12px}.emoji-modal-list{overflow:auto;flex:1;background:white;border-radius:16px;padding:12px}.emoji-modal-footer{padding:12px 0 4px}.emoji-modal-footer button{width:100%;padding:15px}
 @media(max-width:600px){
  .wrap{padding:12px 11px 50px}
  .grid{grid-template-columns:1fr 1fr}
@@ -130,7 +130,6 @@ input[type=color]{width:58px;height:58px;padding:4px;border-radius:50%;border:2p
   <button class="active" data-tab="home">Главная</button>
   <button data-tab="ops">Операции</button>
   <button data-tab="cats">Категории</button>
-  <button data-tab="stats">Статистика</button>
  </nav>
  <main id="main"></main>
 </div>
@@ -225,12 +224,37 @@ function txHtml(t,editable=true){
 function monthKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`}
 function monthLabel(d){return new Intl.DateTimeFormat("ru-RU",{month:"long",year:"numeric"}).format(d).replace(/^./,m=>m.toUpperCase())}
 
+function buildStatsMarkup(){
+ const key=monthKey(statsMonth), mt=state.transactions.filter(t=>(t.date||"").startsWith(key));
+ const expenses=mt.filter(t=>t.type==="expense"), incomes=mt.filter(t=>t.type==="income");
+ const exp=expenses.reduce((s,t)=>s+Number(t.amount||0),0), inc=incomes.reduce((s,t)=>s+Number(t.amount||0),0), net=inc-exp;
+ const grouped=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:expenses.filter(t=>t.categoryId===c.id).reduce((s,t)=>s+Number(t.amount||0),0)})).filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
+ const totalCat=grouped.reduce((s,c)=>s+c.sum,0); let angle=0;
+ const stops=grouped.map(c=>{const a=angle;angle+=totalCat?c.sum/totalCat*360:0;return `${color(c.color)} ${a}deg ${angle}deg`});
+ const pieStyle=stops.length?`background:conic-gradient(${stops.join(",")})`:"background:#eeeaf5";
+ const days=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();
+ const daily=Array.from({length:days},(_,i)=>{const day=i+1, list=expenses.filter(t=>Number((t.date||"").slice(8,10))===day);return {day,sum:list.reduce((a,t)=>a+Number(t.amount||0),0),parts:state.categories.map(c=>({color:c.color,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(x=>x.sum>0)}});
+ const avg=days?exp/days:0, largest=expenses.reduce((m,t)=>Math.max(m,Number(t.amount)||0),0), savePercent=inc>0?Math.round(net/inc*100):0;
+ return `<section class="section" id="monthlyStats"><div class="month-nav"><button class="secondary" id="prevMonth">‹</button><h2 style="margin:0;text-align:center;flex:1">${monthLabel(statsMonth)}</h2><button class="secondary" id="nextMonth">›</button></div>
+ <div class="grid">${summary("Остаток за месяц",money(net),net>=0?"":"red","balance-card")}${summary("Доходы",money(inc),"green","income-card")}${summary("Расходы",money(exp),"red","expense-card")}</div>
+ <section class="section"><h2>Показатели месяца</h2><div class="card"><div class="stat-pair"><div class="stat-mini"><span class="label">Операций</span><strong>${mt.length}</strong></div><div class="stat-mini"><span class="label">Средний расход в день</span><strong>${money(avg)}</strong></div><div class="stat-mini"><span class="label">Самый крупный расход</span><strong>${money(largest)}</strong></div><div class="stat-mini"><span class="label">Доля остатка от дохода</span><strong>${inc>0?savePercent+"%":"—"}</strong></div></div></div></section>
+ <section class="section"><h2>Структура расходов за месяц</h2><div class="card">${grouped.length?`<div class="pie" style="${pieStyle}"><div class="pie-hole"><div><strong>${money(exp)}</strong><div class="muted">Всего</div></div></div></div><div class="chart-legend">${grouped.map(c=>`<div class="legend-item" style="width:100%;justify-content:space-between"><span><i class="legend-dot" style="background:${color(c.color)}"></i> ${esc(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)} · ${Math.round(c.sum/(totalCat||1)*100)}%</strong></div>`).join("")}</div>`:'<div class="empty">Добавь расходы, чтобы увидеть диаграмму</div>'}</div></section>
+ <section class="section"><div class="between row"><h2>Расходы по дням</h2><span class="muted">${monthLabel(statsMonth)}</span></div><div class="card"><div class="daily-chart" id="dailyChart">${daily.slice(0,7).map(dayBar).join("")}</div><input class="day-slider" id="daySlider" type="range" min="0" max="${Math.max(0,days-7)}" value="0" step="1"><div class="day-total" id="dayTotal">Выбери день, чтобы увидеть сумму</div></div></section></section>`;
+ function dayBar(d){const max=Math.max(1,...daily.map(x=>x.sum));const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;return `<div class="day-col" data-day="${d.day}" title="${d.day} число"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${d.day}</span></div>`}
+}
+function attachStatsHandlers(){
+ const prev=$("prevMonth"),next=$("nextMonth");if(prev)prev.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);render()};if(next)next.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);render()};
+ const slider=$("daySlider"),chart=$("dailyChart"),out=$("dayTotal");if(!slider||!chart)return;
+ const update=()=>{const offset=Number(slider.value),days=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();const daily=Array.from({length:days},(_,i)=>{const date=`${monthKey(statsMonth)}-${String(i+1).padStart(2,"0")}`;const list=state.transactions.filter(t=>t.type==="expense"&&t.date===date);return {day:i+1,sum:list.reduce((a,t)=>a+Number(t.amount||0),0),parts:state.categories.map(c=>({color:c.color,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(x=>x.sum>0)}});const max=Math.max(1,...daily.map(d=>d.sum));chart.innerHTML=daily.slice(offset,offset+7).map(d=>{const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;return `<div class="day-col" data-day="${d.day}"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${d.day}</span></div>`}).join("");chart.querySelectorAll("[data-day]").forEach(el=>el.onclick=()=>{const d=daily[Number(el.dataset.day)-1];out.textContent=`${d.day} ${monthLabel(statsMonth)}: ${money(d.sum)}`;chart.querySelectorAll(".day-col").forEach(x=>x.style.opacity=x===el?"1":".55")})};slider.oninput=update;update();
+}
+
 function render(){
  if(!user)return;
  document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
  const tx=sortTransactions(state.transactions);
 
  if(tab==="home"){
+  const statsMarkup=buildStatsMarkup();
   $("main").innerHTML=`
   <div class="grid">
    ${summary("Мой остаток",money(balance()),"", "balance-card")}
@@ -239,18 +263,19 @@ function render(){
   </div>
   <div class="add-buttons">
    <button class="add-income" data-add="income">＋ Доход</button>
-   <button class="add-expense" data-add="expense">＋ Расход</button>
+   <button class="add-expense" data-add="expense">− Расход</button>
   </div>
   <section class="section"><div class="between row"><h2>Последние операции</h2><button class="secondary" data-goto="ops">Все</button></div>
    <div class="card">${tx.length?tx.slice(0,5).map(t=>txHtml(t,false)).join(""):'<div class="empty">Пока нет операций</div>'}</div>
-  </section>`;
+  </section>${statsMarkup}`;
+  attachStatsHandlers();
  }
  else if(tab==="ops"){
-  $("main").innerHTML=`
+    $("main").innerHTML=`
   <div class="between row"><h2>История операций</h2></div>
   <div class="add-buttons">
    <button class="add-income" data-add="income">＋ Доход</button>
-   <button class="add-expense" data-add="expense">＋ Расход</button>
+   <button class="add-expense" data-add="expense">− Расход</button>
   </div>
   <div class="card">${tx.length?tx.map(t=>txHtml(t)).join(""):'<div class="empty">Операций пока нет</div>'}</div>`;
  }
@@ -260,69 +285,7 @@ function render(){
   <div class="card"><h3>Расходы</h3>${state.categories.filter(c=>c.type==="expense").map(catHtml).join("")}
   <h3>Доходы</h3>${state.categories.filter(c=>c.type==="income").map(catHtml).join("")}</div>`;
  }
- else if(tab==="stats"){
-  const key=monthKey(statsMonth);
-  const mt=state.transactions.filter(t=>(t.date||"").startsWith(key));
-  const expenses=mt.filter(t=>t.type==="expense");
-  const incomes=mt.filter(t=>t.type==="income");
-  const exp=expenses.reduce((s,t)=>s+Number(t.amount||0),0);
-  const inc=incomes.reduce((s,t)=>s+Number(t.amount||0),0);
-  const net=inc-exp;
-  const grouped=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:expenses.filter(t=>t.categoryId===c.id).reduce((s,t)=>s+Number(t.amount||0),0)})).filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
-  const totalCat=grouped.reduce((s,c)=>s+c.sum,0);
-  let angle=0;
-  const stops=grouped.map(c=>{
-   const start=angle;angle+=totalCat?c.sum/totalCat*360:0;
-   return `${color(c.color)} ${start}deg ${angle}deg`;
-  });
-  const pieStyle=stops.length?`background:conic-gradient(${stops.join(",")})`:"background:#eeeaf5";
-  const days=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();
-  const daily=Array.from({length:days},(_,i)=>({
-   day:i+1,
-   sum:expenses.filter(t=>Number((t.date||"").slice(8,10))===i+1).reduce((s,t)=>s+Number(t.amount||0),0)
-  }));
-  const maxDay=Math.max(1,...daily.map(d=>d.sum));
-  const avg=days?exp/days:0;
-  const largest=expenses.reduce((m,t)=>Math.max(m,Number(t.amount)||0),0);
-  const savePercent=inc>0?Math.round(net/inc*100):0;
-
-  $("main").innerHTML=`
-  <div class="month-nav">
-   <button class="secondary" id="prevMonth">‹</button>
-   <h2 style="margin:0;text-align:center;flex:1">${monthLabel(statsMonth)}</h2>
-   <button class="secondary" id="nextMonth">›</button>
-  </div>
-  <div class="grid">
-   ${summary("Мой остаток",money(net),net>=0?"":"red","balance-card")}
-   ${summary("Доходы",money(inc),"green","income-card")}
-   ${summary("Расходы",money(exp),"red","expense-card")}
-  </div>
-  <section class="section"><h2>Показатели месяца</h2>
-   <div class="card"><div class="stat-pair">
-    <div class="stat-mini"><span class="label">Операций</span><strong>${mt.length}</strong></div>
-    <div class="stat-mini"><span class="label">Средний расход в день</span><strong>${money(avg)}</strong></div>
-    <div class="stat-mini"><span class="label">Самый крупный расход</span><strong>${money(largest)}</strong></div>
-    <div class="stat-mini"><span class="label">Доля остатка от дохода</span><strong>${inc>0?savePercent+"%":"—"}</strong></div>
-   </div></div>
-  </section>
-  <section class="section"><h2>Структура расходов</h2>
-   <div class="card">
-    ${grouped.length?`<div class="pie" style="${pieStyle}"><div class="pie-hole"><div><strong>${money(exp)}</strong><div class="muted">Всего</div></div></div></div>
-    <div class="chart-legend">${grouped.map(c=>`<span class="legend-item"><i class="legend-dot" style="background:${color(c.color)}"></i>${esc(c.name)} · ${Math.round(c.sum/(totalCat||1)*100)}%</span>`).join("")}</div>`:'<div class="empty">Добавь расходы, чтобы увидеть диаграмму</div>'}
-   </div>
-  </section>
-  <section class="section"><h2>Расходы по дням</h2>
-   <div class="card">
-    <div class="daily-chart">${daily.map(d=>{
-     const h=d.sum?Math.max(4,Math.sqrt(d.sum/maxDay)*112):2;
-     return `<div class="day-col" title="${d.day} число: ${money(d.sum)}"><div class="day-bar" style="height:${h}px"></div><span class="day-label">${d.day}</span></div>`;
-    }).join("")}</div>
-    <p class="chart-caption">Высота столбцов сглажена, чтобы крупные расходы не скрывали остальные дни.</p>
-   </div>
-  </section>
-`;
-  $("prevMonth").onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);render()};
-  $("nextMonth").onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);render()};
+ else if(tab==="stats"){tab="home";render();return;
  }
 
  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.goto;render()});
@@ -397,17 +360,16 @@ function openTx(id=null,type="expense"){
 }
 
 const emojiGroups={
- "Продукты и питание":["🛒","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥝","🥑","🍅","🥕","🌽","🥦","🥬","🥒","🧄","🧅","🥔","🍞","🥐","🥨","🧀","🥚","🍳","🥞","🧇","🥓","🍗","🍖","🌭","🍔","🍟","🍕","🥪","🌮","🌯","🥗","🍝","🍜","🍲","🍛","🍣","🍱","🥟","🍤","🍦","🍰","🎂","🍫","🍬","☕","🫖","🥤"],
- "Дом и быт":["🏠","🏡","🏢","🏘️","🛏️","🛋️","🚿","🛁","🚽","🧹","🧺","🧻","🪣","🪟","🚪","🔑","💡","🪑","🪴","🧯","🧰","🪜","🧽","🧼","🪥","🧴"],
- "Транспорт":["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚚","🚛","🚜","🏍️","🛵","🚲","🛴","🚆","🚇","🚉","✈️","🛫","🛬","🚁","🚢","⛽","🛞","🅿️"],
- "Покупки и вещи":["🛍️","🛒","👕","👖","👗","👔","👟","🥾","🧥","🧦","👜","🎒","👓","⌚","💍","💄","🧢","🧳","📦","🎁","🪙","💳"],
- "Здоровье":["💊","🩺","🩹","🧬","🦷","🦴","🩻","🏥","🧑‍⚕️","🧪","🧫","🩼","🩸","🧘","🏃","🚴","🏋️"],
- "Работа и учёба":["💼","💻","🖥️","⌨️","🖨️","📱","📚","📖","📓","📝","📎","📌","📐","✏️","🖊️","🎓","🏫","🏢","📊","📈","📁","🗂️"],
- "Отдых и развлечения":["🎬","🎭","🎨","🎧","🎤","🎹","🎸","🎮","🕹️","🎲","♟️","🎯","🎳","🎾","⚽","🏀","🏐","🎣","🏕️","🎟️","🎫","🎪","🎡","🏖️"],
- "Путешествия":["🧳","🗺️","🧭","🏝️","🏔️","⛺","🏨","🏰","🗼","🗽","⛵","🚠","🚡","🚞","🚄","🚅","🛳️"],
- "Финансы":["💰","💵","💶","💷","💴","💳","🪙","🏦","📉","📈","🧾","🪙","💎"],
- "Питомцы и животные":["🐕","🐈","🐈‍⬛","🐇","🐎","🐄","🐖","🐑","🐐","🐓","🐟","🐠","🐢","🦜","🐾"],
- "Природа и сад":["🌳","🌲","🌴","🌵","🌷","🌹","🌻","🌼","🌱","🌿","🍀","🌾","🍁","🍂","🌍","🌞","🌧️","❄️"]
+ "Еда и кафе":["ЯЕ","🍽️","🥣","🍴","☕","🥡","🍔","🍕","🥗","🍞","🥛","🛒"],
+ "Дом и счета":["🏠","🏢","🛋️","🛏️","🚿","💡","🔌","🧹","🧺","🧼","🔑","🪴"],
+ "Транспорт и поездки":["⛽","🚗","🚕","🚖","ЯТ","🚌","🚆","🚲","🅿️","🛞","🧳","✈️"],
+ "Магазины и покупки":["WB","OZON","🛍️","📦","🛒","👕","👟","👜","👓","⌚","💄","🎁","🧴","🪒"],
+ "Здоровье и уход":["💊","🏥","🦷","🩺","💇","💈","💅","🧖","🧴","🩹","👓"],
+ "Работа и обучение":["💼","💻","📱","📚","🎓","🖊️","🖨️","📊","🧰"],
+ "Досуг и спорт":["🎬","🎮","🎧","🎟️","🎨","⚽","🏋️","🚴","🏕️","🏖️","🎳"],
+ "Семья и питомцы":["👨‍👩‍👧","👶","🎁","🐾","🐕","🐈"],
+ "Финансы и услуги":["💳","💰","🏦","🧾","📮","📦","📱","🌐"],
+ "Доходы":["💵","💶","💷","💼","🪙","🏆","🎁","📈"]
 };
 
 function openCat(id=null){
@@ -429,7 +391,7 @@ function openCat(id=null){
       <button type="button" class="secondary" id="toggleEmojiPicker">Выбрать значок</button>
      </div>
      <input type="hidden" name="emoji" id="emojiValue" value="${selectedEmoji}">
-     <div id="emojiPicker" class="hidden"></div>
+     
     </div>
     <div class="field"><label>Цвет категории</label>
      <input name="color" id="catColor" type="color" value="${color(old?.color||"#b9a8f5")}">
@@ -439,19 +401,14 @@ function openCat(id=null){
   </div>
  </div>`;
  $("close").onclick=closeModal;
- const picker=$("emojiPicker");
  $("toggleEmojiPicker").onclick=()=>{
-  picker.classList.toggle("hidden");
-  $("toggleEmojiPicker").textContent=picker.classList.contains("hidden")?"Выбрать значок":"Скрыть значки";
+  const modal=document.createElement("div");modal.className="emoji-modal";
+  modal.innerHTML=`<div class="emoji-modal-head"><strong>Выбери значок</strong><button type="button" class="secondary" id="emojiCancel">Закрыть</button></div><div class="emoji-modal-list" id="emojiList">${Object.entries(emojiGroups).map(([group,emojis])=>`<div class="emoji-group">${group}</div><div class="emoji-grid">${emojis.map(em=>`<button type="button" class="emoji-option ${em===($("emojiValue").value) ? "selected":""}" data-emoji="${em}">${em}</button>`).join("")}</div>`).join("")}</div><div class="emoji-modal-footer"><button type="button" id="emojiChoose">Выбрать</button></div>`;
+  document.body.appendChild(modal);let pending=$("emojiValue").value;
+  modal.querySelectorAll("[data-emoji]").forEach(b=>b.onclick=()=>{pending=b.dataset.emoji;modal.querySelectorAll(".emoji-option").forEach(x=>x.classList.toggle("selected",x===b))});
+  modal.querySelector("#emojiCancel").onclick=()=>modal.remove();
+  modal.querySelector("#emojiChoose").onclick=()=>{$("emojiValue").value=pending;$("emojiSelected").textContent=pending;modal.remove()};
  };
- picker.innerHTML=Object.entries(emojiGroups).map(([group,emojis])=>
-  `<div class="emoji-group">${group}</div><div class="emoji-grid">${emojis.map(em=>`<button type="button" class="emoji-option ${em===selectedEmoji?"selected":""}" data-emoji="${em}">${em}</button>`).join("")}</div>`
- ).join("");
- picker.querySelectorAll("[data-emoji]").forEach(b=>b.onclick=()=>{
-  $("emojiValue").value=b.dataset.emoji;
-  $("emojiSelected").textContent=b.dataset.emoji;
-  picker.querySelectorAll(".emoji-option").forEach(x=>x.classList.toggle("selected",x===b));
- });
  $("catForm").onsubmit=e=>{
   e.preventDefault();
   const f=new FormData(e.currentTarget);
@@ -533,3 +490,5 @@ onAuthStateChanged(auth,async u=>{
 </script>
 </body>
 </html>
+
+  
