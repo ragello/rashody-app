@@ -91,6 +91,7 @@ input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px
 .add-expense{background:linear-gradient(135deg,#d94f70,#f0788e)}
 .legend-table{margin-top:15px;border-top:1px solid var(--line)}.legend-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:15px}.legend-row strong{font-size:15px;white-space:nowrap}.legend-name{display:flex;align-items:center;gap:8px;min-width:0}.legend-name .legend-dot{flex:none}.day-slider{appearance:none;height:30px;background:transparent;cursor:pointer}.day-slider::-webkit-slider-runnable-track{height:4px;background:#dcd6eb;border-radius:8px}.day-slider::-moz-range-track{height:4px;background:#dcd6eb;border-radius:8px}.day-slider::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--purple);margin-top:-7px;border:3px solid white;box-shadow:0 0 0 1px var(--purple)}.day-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--purple);border:3px solid white;box-shadow:0 0 0 1px var(--purple)}.day-col.selected .day-bar{outline:2px solid var(--purple);outline-offset:3px}.day-col.selected .day-label{color:var(--purple);font-weight:800}.day-total{font-size:16px;margin:8px 0 12px}.day-break-title{font-weight:750;margin:12px 0 4px}.keyboard-emoji{background:#f7f5ff;border-radius:12px;padding:12px;margin-bottom:14px}.keyboard-emoji label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.keyboard-emoji input{font-size:24px;text-align:center}
 .chart-caption{text-align:center;color:var(--muted);font-size:12px}.day-slider{width:100%;margin-top:14px}.day-total{font-weight:750;text-align:center;margin-top:8px}.selected-day-summary{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:#f5f2ff;border-radius:14px;padding:12px 15px;margin:10px 0 12px}.selected-day-date{font-size:14px;color:var(--muted);font-weight:650}.selected-day-amount{font-size:21px;font-weight:850;color:var(--ink)}.keyboard-emoji input::placeholder{font-size:13px;color:#817d91}.emoji-modal{position:fixed;inset:0;background:#211b36;z-index:20;display:flex;flex-direction:column;padding:12px;overflow:hidden}.emoji-modal-head{display:flex;align-items:center;justify-content:space-between;color:white;padding:5px 2px 12px}.emoji-modal-list{overflow:auto;flex:1;background:white;border-radius:16px;padding:12px}.emoji-modal-footer{padding:12px 0 4px}.emoji-modal-footer button{width:100%;padding:15px}
+.daily-chart{touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;gap:8px}.daily-chart:active{cursor:grabbing}.day-col{min-width:0;flex:1}.day-bar{width:min(30px,75%)}.month-position{height:3px;background:#eeeaf3;border-radius:5px;margin:15px 2px 3px;position:relative;opacity:.8}.month-position span{position:absolute;top:50%;width:17px;height:3px;border-radius:4px;background:#aaa4b8;transform:translate(-50%,-50%);transition:left .08s linear}.ops-add{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:22px;box-shadow:var(--shadow)}.ops-add h2{font-size:17px;margin:0}.ops-add .add-buttons{margin:13px 0 0}.ops-history-title{padding:0 3px;margin:0 0 9px}.ops-history-title h2{margin:0}.categories-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:3px 2px 16px}.categories-heading h2{margin:0 0 3px}.category-add-btn{background:var(--purple);color:white;border-radius:14px;padding:12px 15px;white-space:nowrap;box-shadow:0 5px 13px #7057d926;font-size:13px}.categories-card{padding:17px}.categories-card h3{margin:2px 0 8px;color:#5d5474}.categories-card h3:not(:first-child){margin-top:18px;padding-top:15px;border-top:1px solid var(--line)}
 @media(max-width:600px){
  .wrap{padding:12px 11px 50px}
  .grid{grid-template-columns:1fr 1fr}
@@ -245,25 +246,38 @@ function buildStatsMarkup(){
  return `<section class="section" id="monthlyStats"><div style="text-align:center;margin-bottom:10px"><div class="muted" style="font-size:14px;font-weight:700">Статистика за</div></div><div class="month-nav"><button class="secondary" id="prevMonth">‹</button><h2 style="margin:0;text-align:center;flex:1">${monthLabel(statsMonth)}</h2><button class="secondary" id="nextMonth">›</button></div>
  <section class="section"><h2>Показатели месяца</h2><div class="card"><div class="stat-pair"><div class="stat-mini"><span class="label">Операций</span><strong>${mt.length}</strong></div><div class="stat-mini"><span class="label">Средний расход в день</span><strong>${money(avg)}</strong></div><div class="stat-mini"><span class="label">Самый крупный расход</span><strong>${money(largest)}</strong></div><div class="stat-mini"><span class="label">Доля остатка от дохода</span><strong>${inc>0?savePercent+"%":"—"}</strong></div></div></div></section>
  <section class="section"><h2>Структура расходов за месяц</h2><div class="card">${grouped.length?`<div class="pie-wrap"><div class="pie" style="${pieStyle}"><div class="pie-hole"><div><strong>${money(exp)}</strong><div class="muted">Всего</div></div></div>${(()=>{let a=0;return grouped.map(c=>{const mid=a+(c.sum/(totalCat||1)*360)/2;a+=c.sum/(totalCat||1)*360;const r=mid*Math.PI/180;const x=50+37*Math.sin(r),y=50-37*Math.cos(r);return `<span class="pie-emoji" style="left:${x}%;top:${y}%" title="${esc(c.name)}">${iconMarkup(c.emoji)}</span>`}).join("")})()}</div></div><div class="legend-table">${grouped.map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(totalCat||1)*100)}%</strong></div>`).join("")}</div>`:'<div class="empty">Добавь расходы, чтобы увидеть диаграмму</div>'}</div></section>
- <section class="section"><div class="between row"><h2>Расходы по дням</h2><span class="muted">${monthLabel(statsMonth)}</span></div><div class="card"><div class="daily-chart" id="dailyChart"></div><input class="day-slider" id="daySlider" type="range" min="1" max="${days}" value="${statsMonth.getFullYear()===new Date().getFullYear()&&statsMonth.getMonth()===new Date().getMonth()?new Date().getDate():days}" step="1"><div class="day-total" id="dayTotal"></div><div id="dayBreakdown" class="day-breakdown"></div></div></section></section>`;
+ <section class="section"><div class="between row"><h2>Расходы по дням</h2><span class="muted" id="dailyMonthLabel">${monthLabel(statsMonth)}</span></div><div class="card"><div class="daily-chart" id="dailyChart"></div><div class="month-position" aria-hidden="true"><span id="monthPositionThumb"></span></div><div class="day-total" id="dayTotal"></div><div id="dayBreakdown" class="day-breakdown"></div></div></section></section>`;
  function dayBar(d){const max=Math.max(1,...daily.map(x=>x.sum));const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;return `<div class="day-col" data-day="${d.day}" title="${d.day} число"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${d.day}</span></div>`}
 }
 function attachStatsHandlers(){
- const prev=$("prevMonth"),next=$("nextMonth");if(prev)prev.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);render()};if(next)next.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);render()};
- const slider=$("daySlider"),chart=$("dailyChart"),out=$("dayTotal"),breakdown=$("dayBreakdown");if(!slider||!chart)return;
- const days=Number(slider.max);
- const daily=Array.from({length:days},(_,i)=>{const day=i+1,date=`${monthKey(statsMonth)}-${String(day).padStart(2,"0")}`;const list=state.transactions.filter(t=>t.type==="expense"&&t.date===date);return {day,date,sum:list.reduce((a,t)=>a+Number(t.amount||0),0),parts:state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(x=>x.sum>0)}});
- const renderWindow=()=>{const selected=Number(slider.value),start=Math.max(1,Math.min(Math.max(1,days-6),selected-3));const visible=daily.slice(start-1,start+6);const max=Math.max(1,...daily.map(d=>d.sum));chart.innerHTML=visible.map(d=>{const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;return `<div class="day-col ${d.day===selected?'selected':''}" data-day="${d.day}"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${String(d.day).padStart(2,"0")}.${String(statsMonth.getMonth()+1).padStart(2,"0")}</span></div>`}).join("");
- chart.querySelectorAll('[data-day]').forEach(el=>el.onclick=()=>{slider.value=el.dataset.day;renderWindow()});
- const d=daily[selected-1];out.innerHTML=`<div class="selected-day-summary"><div class="selected-day-date">${String(selected).padStart(2,"0")}.${String(statsMonth.getMonth()+1).padStart(2,"0")}.${statsMonth.getFullYear()}</div><div class="selected-day-amount">${money(d.sum)}</div></div>`;
- breakdown.innerHTML=d.parts.length?`<div class="day-break-title">Расходы по категориям</div><div class="legend-table">${[...d.parts].sort((a,b)=>b.sum-a.sum).map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(d.sum||1)*100)}%</strong></div>`).join("")}</div>`:'<div class="muted">В этот день расходов нет</div>';
- };slider.oninput=renderWindow;renderWindow();
- let swipeStartX=null,swipeStartDay=null,dragging=false;
- const chooseAtX=x=>{const cols=[...chart.querySelectorAll("[data-day]")];if(!cols.length)return;let best=cols[0],dist=Infinity;cols.forEach(el=>{const r=el.getBoundingClientRect(),d=Math.abs(x-(r.left+r.width/2));if(d<dist){dist=d;best=el}});slider.value=best.dataset.day;renderWindow()};
- chart.addEventListener("pointerdown",e=>{swipeStartX=e.clientX;swipeStartDay=Number(slider.value);dragging=true;chart.setPointerCapture?.(e.pointerId);chooseAtX(e.clientX)});
- chart.addEventListener("pointermove",e=>{if(dragging)chooseAtX(e.clientX)});
- chart.addEventListener("pointerup",e=>{dragging=false;swipeStartX=null;swipeStartDay=null});
- chart.addEventListener("pointercancel",()=>{dragging=false;swipeStartX=null;swipeStartDay=null});
+ const prev=$("prevMonth"),next=$("nextMonth");
+ if(prev)prev.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);render()};
+ if(next)next.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);render()};
+ const chart=$("dailyChart"),out=$("dayTotal"),breakdown=$("dayBreakdown"),thumb=$("monthPositionThumb"),monthLabelEl=$("dailyMonthLabel");
+ if(!chart)return;
+ let selectedDate=new Date();
+ if(statsMonth.getFullYear()!==selectedDate.getFullYear()||statsMonth.getMonth()!==selectedDate.getMonth()) selectedDate=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0);
+ selectedDate.setHours(12,0,0,0);
+ const dateKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+ const dateData=d=>{const key=dateKey(d),list=state.transactions.filter(t=>t.type==="expense"&&t.date===key);const sum=list.reduce((a,t)=>a+Number(t.amount||0),0);const parts=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(c=>c.sum>0);return {date:new Date(d),key,sum,parts}};
+ const shiftDate=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+ const renderWindow=()=>{
+  const visible=Array.from({length:7},(_,i)=>dateData(shiftDate(selectedDate,i-3)));
+  const max=Math.max(1,...visible.map(d=>d.sum));
+  chart.innerHTML=visible.map(d=>{const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;const selected=d.key===dateKey(selectedDate);return `<div class="day-col ${selected?'selected':''}" data-date="${d.key}"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${String(d.date.getDate()).padStart(2,"0")}.${String(d.date.getMonth()+1).padStart(2,"0")}</span></div>`}).join("");
+  const d=dateData(selectedDate);out.innerHTML=`<div class="selected-day-summary"><div class="selected-day-date">${String(selectedDate.getDate()).padStart(2,"0")}.${String(selectedDate.getMonth()+1).padStart(2,"0")}.${selectedDate.getFullYear()}</div><div class="selected-day-amount">${money(d.sum)}</div></div>`;
+  breakdown.innerHTML=d.parts.length?`<div class="day-break-title">Расходы по категориям</div><div class="legend-table">${[...d.parts].sort((a,b)=>b.sum-a.sum).map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(d.sum||1)*100)}%</strong></div>`).join("")}</div>`:'<div class="muted">В этот день расходов нет</div>';
+  const daysInMonth=new Date(selectedDate.getFullYear(),selectedDate.getMonth()+1,0).getDate();
+  if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;
+  if(monthLabelEl)monthLabelEl.textContent=monthLabel(selectedDate);
+ };
+ const selectDate=d=>{selectedDate=new Date(d);selectedDate.setHours(12,0,0,0);renderWindow()};
+ chart.addEventListener("click",e=>{const col=e.target.closest("[data-date]");if(col)selectDate(new Date(col.dataset.date+"T12:00:00"))});
+ let dragging=false,startX=0,lastShift=0,pointerId=null;
+ chart.addEventListener("pointerdown",e=>{dragging=true;startX=e.clientX;lastShift=0;pointerId=e.pointerId;chart.setPointerCapture?.(e.pointerId);e.preventDefault()});
+ chart.addEventListener("pointermove",e=>{if(!dragging)return;const delta=e.clientX-startX;const shift=Math.trunc(delta/42);if(shift!==lastShift){selectedDate=shiftDate(selectedDate,-(shift-lastShift));lastShift=shift;renderWindow()}});
+ const stop=()=>{dragging=false;pointerId=null};chart.addEventListener("pointerup",stop);chart.addEventListener("pointercancel",stop);chart.addEventListener("lostpointercapture",stop);
+ renderWindow();
 }
 
 function render(){
@@ -286,17 +300,17 @@ function render(){
  }
  else if(tab==="ops"){
   $("main").innerHTML=`
-  <div class="between row"><h2>История операций</h2></div>
-  <div class="add-buttons">
+  <section class="ops-add"><h2>Добавить операцию:</h2><div class="add-buttons">
    <button class="add-income" data-add="income">＋ Доход</button>
    <button class="add-expense" data-add="expense">− Расход</button>
-  </div>
+  </div></section>
+  <div class="ops-history-title"><h2>История операций</h2></div>
   <div class="card">${tx.length?tx.map(t=>txHtml(t)).join(""):'<div class="empty">Операций пока нет</div>'}</div>`;
  }
  else if(tab==="cats"){
   $("main").innerHTML=`
-  <div class="between row"><h2>Категории</h2><button data-catnew>＋ Добавить</button></div>
-  <div class="card"><h3>Расходы</h3>${state.categories.filter(c=>c.type==="expense").map(catHtml).join("")}
+  <div class="categories-heading"><div><h2>Мои категории</h2><p class="muted">Настраивай значки, цвета и названия</p></div><button class="category-add-btn" data-catnew>＋ Добавить категорию</button></div>
+  <div class="card categories-card"><h3>Расходы</h3>${state.categories.filter(c=>c.type==="expense").map(catHtml).join("")}
   <h3>Доходы</h3>${state.categories.filter(c=>c.type==="income").map(catHtml).join("")}</div>`;
  }
  else if(tab==="stats"){tab="home";render();return;
