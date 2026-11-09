@@ -315,7 +315,7 @@ function attachStatsHandlers(){
  // Update the selected date while the finger moves, not after touchend.
  // Vertical page scrolling remains available; horizontal gestures drive the chart.
  let touchStartX=0,touchStartY=0,touchLastStep=0,touchTracking=false,touchHorizontal=false;
- const touchStep=38;
+ const touchStep=30; // примерно 30 px движения пальца = один день
  chart.addEventListener("touchstart",e=>{
   if(e.touches.length!==1){touchTracking=false;touchHorizontal=false;return;}
   touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;
@@ -350,7 +350,7 @@ function attachStatsHandlers(){
  chart.addEventListener("touchcancel",finishTouch,{passive:true});
  // Pointer Events remain for desktop mouse input only.
  let dragging=false,horizontal=false,startX=0,startY=0,lastShift=0,pointerId=null;
- const step=42;
+ const step=30; // одинаковая чувствительность для мыши и сенсорного управления
  chart.addEventListener("pointerdown",e=>{
   if(e.pointerType!=="mouse"||e.button!==0)return;
   dragging=true;horizontal=false;startX=e.clientX;startY=e.clientY;lastShift=0;pointerId=e.pointerId;
