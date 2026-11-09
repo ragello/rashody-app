@@ -295,16 +295,51 @@ function attachStatsHandlers(){
   if(monthLabelEl)monthLabelEl.textContent=monthLabel(selectedDate);
  };
  const selectDate=d=>{selectedDate=new Date(d);selectedDate.setHours(12,0,0,0);renderWindow()};
- let suppressClick=false;
- chart.addEventListener("click",e=>{if(suppressClick){suppressClick=false;e.preventDefault();return;}const col=e.target.closest("[data-date]");if(col)selectDate(new Date(col.dataset.date+"T12:00:00"))});
+ let suppressClick=false,clickResetTimer=null;
+ const blockNextClick=()=>{
+  suppressClick=true;
+  clearTimeout(clickResetTimer);
+  clickResetTimer=setTimeout(()=>{suppressClick=false},700);
+ };
+ chart.addEventListener("click",e=>{
+  if(suppressClick){suppressClick=false;clearTimeout(clickResetTimer);e.preventDefault();e.stopPropagation();return;}
+  const col=e.target.closest("[data-date]");
+  if(col)selectDate(new Date(col.dataset.date+"T12:00:00"));
+ });
+ const shiftWithinMonth=delta=>{
+  const monthStart=new Date(statsMonth.getFullYear(),statsMonth.getMonth(),1,12);
+  const monthEnd=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0,12);
+  const candidate=shiftDate(selectedDate,delta);
+  selectedDate=candidate<monthStart?monthStart:candidate>monthEnd?monthEnd:candidate;
+  renderWindow();
+ };
+ // Touch handling is intentionally separate from Pointer Events: mobile browsers
+ // may cancel pointer streams while deciding whether a gesture scrolls the page.
+ let touchStartX=0,touchStartY=0,touchTracking=false;
+ chart.addEventListener("touchstart",e=>{
+  if(e.touches.length!==1){touchTracking=false;return;}
+  touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;touchTracking=true;
+ },{passive:true});
+ chart.addEventListener("touchend",e=>{
+  if(!touchTracking||!e.changedTouches.length)return;
+  touchTracking=false;
+  const dx=e.changedTouches[0].clientX-touchStartX;
+  const dy=e.changedTouches[0].clientY-touchStartY;
+  if(Math.abs(dx)<30||Math.abs(dx)<Math.abs(dy)*1.2)return;
+  const days=Math.max(1,Math.min(7,Math.round(Math.abs(dx)/42)));
+  blockNextClick();
+  shiftWithinMonth(dx<0?days:-days);
+ },{passive:true});
+ chart.addEventListener("touchcancel",()=>{touchTracking=false},{passive:true});
+ // Pointer Events remain for desktop mouse input only.
  let dragging=false,horizontal=false,startX=0,startY=0,lastShift=0,pointerId=null;
  const step=42;
  chart.addEventListener("pointerdown",e=>{
-  if(e.pointerType==="mouse"&&e.button!==0)return;
+  if(e.pointerType!=="mouse"||e.button!==0)return;
   dragging=true;horizontal=false;startX=e.clientX;startY=e.clientY;lastShift=0;pointerId=e.pointerId;
  });
  chart.addEventListener("pointermove",e=>{
-  if(!dragging)return;
+  if(!dragging||e.pointerType!=="mouse")return;
   const dx=e.clientX-startX,dy=e.clientY-startY;
   if(!horizontal){
    if(Math.abs(dy)>8&&Math.abs(dy)>Math.abs(dx)){dragging=false;return;}
@@ -314,20 +349,15 @@ function attachStatsHandlers(){
   }
   const shift=Math.trunc(dx/step);
   if(shift!==lastShift){
-   const monthStart=new Date(statsMonth.getFullYear(),statsMonth.getMonth(),1,12);
-   const monthEnd=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0,12);
-   const candidate=shiftDate(selectedDate,-(shift-lastShift));
-   selectedDate=candidate<monthStart?monthStart:candidate>monthEnd?monthEnd:candidate;
+   blockNextClick();
+   shiftWithinMonth(-(shift-lastShift));
    lastShift=shift;
-   suppressClick=true;
-   renderWindow();
   }
-  const remainder=dx-shift*step;
-  chart.style.transform=`translateX(${remainder}px)`;
+  chart.style.transform=`translateX(${dx-shift*step}px)`;
  });
  const stop=()=>{
   if(!dragging&&!horizontal)return;
-  if(horizontal)suppressClick=true;
+  if(horizontal)blockNextClick();
   dragging=false;horizontal=false;pointerId=null;chart.style.transform="";
  };
  chart.addEventListener("pointerup",stop);
