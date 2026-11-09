@@ -295,7 +295,8 @@ function attachStatsHandlers(){
   if(monthLabelEl)monthLabelEl.textContent=monthLabel(selectedDate);
  };
  const selectDate=d=>{selectedDate=new Date(d);selectedDate.setHours(12,0,0,0);renderWindow()};
- chart.addEventListener("click",e=>{const col=e.target.closest("[data-date]");if(col)selectDate(new Date(col.dataset.date+"T12:00:00"))});
+ let suppressClick=false;
+ chart.addEventListener("click",e=>{if(suppressClick){suppressClick=false;e.preventDefault();return;}const col=e.target.closest("[data-date]");if(col)selectDate(new Date(col.dataset.date+"T12:00:00"))});
  let dragging=false,horizontal=false,startX=0,startY=0,lastShift=0,pointerId=null;
  const step=42;
  chart.addEventListener("pointerdown",e=>{
@@ -313,8 +314,12 @@ function attachStatsHandlers(){
   }
   const shift=Math.trunc(dx/step);
   if(shift!==lastShift){
-   selectedDate=shiftDate(selectedDate,-(shift-lastShift));
+   const monthStart=new Date(statsMonth.getFullYear(),statsMonth.getMonth(),1,12);
+   const monthEnd=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0,12);
+   const candidate=shiftDate(selectedDate,-(shift-lastShift));
+   selectedDate=candidate<monthStart?monthStart:candidate>monthEnd?monthEnd:candidate;
    lastShift=shift;
+   suppressClick=true;
    renderWindow();
   }
   const remainder=dx-shift*step;
@@ -322,6 +327,7 @@ function attachStatsHandlers(){
  });
  const stop=()=>{
   if(!dragging&&!horizontal)return;
+  if(horizontal)suppressClick=true;
   dragging=false;horizontal=false;pointerId=null;chart.style.transform="";
  };
  chart.addEventListener("pointerup",stop);
