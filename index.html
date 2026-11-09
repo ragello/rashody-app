@@ -306,31 +306,48 @@ function attachStatsHandlers(){
   const col=e.target.closest("[data-date]");
   if(col)selectDate(new Date(col.dataset.date+"T12:00:00"));
  });
+ // The daily chart is a continuous date strip: it can cross month boundaries.
  const shiftWithinMonth=delta=>{
-  const monthStart=new Date(statsMonth.getFullYear(),statsMonth.getMonth(),1,12);
-  const monthEnd=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0,12);
-  const candidate=shiftDate(selectedDate,delta);
-  selectedDate=candidate<monthStart?monthStart:candidate>monthEnd?monthEnd:candidate;
+  if(!delta)return;
+  selectedDate=shiftDate(selectedDate,delta);
   renderWindow();
  };
- // Touch handling is intentionally separate from Pointer Events: mobile browsers
- // may cancel pointer streams while deciding whether a gesture scrolls the page.
- let touchStartX=0,touchStartY=0,touchTracking=false;
+ // Update the selected date while the finger moves, not after touchend.
+ // Vertical page scrolling remains available; horizontal gestures drive the chart.
+ let touchStartX=0,touchStartY=0,touchLastStep=0,touchTracking=false,touchHorizontal=false;
+ const touchStep=38;
  chart.addEventListener("touchstart",e=>{
-  if(e.touches.length!==1){touchTracking=false;return;}
-  touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;touchTracking=true;
+  if(e.touches.length!==1){touchTracking=false;touchHorizontal=false;return;}
+  touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;
+  touchLastStep=0;touchTracking=true;touchHorizontal=false;
+  chart.style.transition="none";
  },{passive:true});
- chart.addEventListener("touchend",e=>{
-  if(!touchTracking||!e.changedTouches.length)return;
-  touchTracking=false;
-  const dx=e.changedTouches[0].clientX-touchStartX;
-  const dy=e.changedTouches[0].clientY-touchStartY;
-  if(Math.abs(dx)<30||Math.abs(dx)<Math.abs(dy)*1.2)return;
-  const days=Math.max(1,Math.min(7,Math.round(Math.abs(dx)/42)));
-  blockNextClick();
-  shiftWithinMonth(dx<0?days:-days);
+ chart.addEventListener("touchmove",e=>{
+  if(!touchTracking||e.touches.length!==1)return;
+  const dx=e.touches[0].clientX-touchStartX;
+  const dy=e.touches[0].clientY-touchStartY;
+  if(!touchHorizontal){
+   if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+   if(Math.abs(dy)>Math.abs(dx)*1.15){touchTracking=false;return;}
+   touchHorizontal=true;
+  }
+  if(Math.abs(dx)<Math.abs(dy)*0.8)return;
+  const step=Math.trunc(dx/touchStep);
+  if(step!==touchLastStep){
+   blockNextClick();
+   shiftWithinMonth(-(step-touchLastStep));
+   touchLastStep=step;
+  }
+  const remainder=dx-step*touchStep;
+  chart.style.transform=`translateX(${remainder}px)`;
  },{passive:true});
- chart.addEventListener("touchcancel",()=>{touchTracking=false},{passive:true});
+ const finishTouch=()=>{
+  if(touchHorizontal)blockNextClick();
+  touchTracking=false;touchHorizontal=false;touchLastStep=0;
+  chart.style.transform="";
+ };
+ chart.addEventListener("touchend",finishTouch,{passive:true});
+ chart.addEventListener("touchcancel",finishTouch,{passive:true});
  // Pointer Events remain for desktop mouse input only.
  let dragging=false,horizontal=false,startX=0,startY=0,lastShift=0,pointerId=null;
  const step=42;
