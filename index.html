@@ -306,54 +306,11 @@ function attachStatsHandlers(){
   const col=e.target.closest("[data-date]");
   if(col)selectDate(new Date(col.dataset.date+"T12:00:00"));
  });
- // The daily chart behaves like a draggable date strip.
- // Horizontal movement is converted directly into whole-day shifts:
- // roughly one visible column of horizontal movement = one day.
+ // The daily chart is a continuous date strip: it can cross month boundaries.
  const shiftWithinMonth=delta=>{
   if(!delta)return;
   selectedDate=shiftDate(selectedDate,delta);
   renderWindow();
- };
- let dragging=false,horizontal=false,startX=0,startY=0,lastDayShift=0,pointerId=null;
- const dayStep=30; // px per day; about the width of one day column
- const finishDrag=()=>{
-  if(horizontal)blockNextClick();
-  dragging=false;horizontal=false;lastDayShift=0;pointerId=null;
-  chart.style.transform="";
- };
- chart.addEventListener("pointerdown",e=>{
-  if(e.pointerType==="mouse"&&e.button!==0)return;
-  dragging=true;horizontal=false;startX=e.clientX;startY=e.clientY;lastDayShift=0;pointerId=e.pointerId;
-  chart.style.transition="none";
- });
- chart.addEventListener("pointermove",e=>{
-  if(!dragging||e.pointerId!==pointerId)return;
-  const dx=e.clientX-startX,dy=e.clientY-startY;
-  if(!horizontal){
-   if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
-   // Keep normal vertical page scrolling intact.
-   if(Math.abs(dy)>Math.abs(dx)*1.15){finishDrag();return;}
-   if(Math.abs(dx)<=Math.abs(dy))return;
-   horizontal=true;
-   try{chart.setPointerCapture(pointerId)}catch{}
-  }
-  // Absolute displacement from the start determines the selected day.
-  // This makes a drag of ~N column widths move by ~N days, with no
-  // dependence on how many intermediate pointermove events are fired.
-  const dayShift=Math.trunc(dx/dayStep);
-  if(dayShift!==lastDayShift){
-   blockNextClick();
-   shiftWithinMonth(-(dayShift-lastDayShift));
-   lastDayShift=dayShift;
-  }
-  const remainder=dx-dayShift*dayStep;
-  chart.style.transform=`translateX(${remainder}px)`;
- });
- chart.addEventListener("pointerup",finishDrag);
- chart.addEventListener("pointercancel",finishDrag);
- chart.addEventListener("lostpointercapture",finishDrag);
- renderWindow();
-
  };
  // Update the selected date while the finger moves, not after touchend.
  // Vertical page scrolling remains available; horizontal gestures drive the chart.
