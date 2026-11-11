@@ -313,12 +313,12 @@ function attachStatsHandlers(){
   renderWindow();
  };
  // One horizontal drag of about 30 px moves the chart by one day.
- // The chart follows the pointer while dragging; the date window is updated on release.
- let dragging=false,startX=0,startY=0,pointerId=null,dragMoved=false;
+ // Update the selected day continuously while dragging, not only on release.
+ let dragging=false,startX=0,startY=0,pointerId=null,dragMoved=false,appliedDays=0;
  const dragStep=30;
  chart.addEventListener("pointerdown",e=>{
   if(e.pointerType==="mouse"&&e.button!==0)return;
-  dragging=true;dragMoved=false;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
+  dragging=true;dragMoved=false;appliedDays=0;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
   try{chart.setPointerCapture(pointerId)}catch{}
  });
  chart.addEventListener("pointermove",e=>{
@@ -332,25 +332,25 @@ function attachStatsHandlers(){
   }
   if(dragMoved){
    blockNextClick();
-   chart.style.transform=`translateX(${dx}px)`;
+   const days=Math.round(dx/dragStep);
+   if(days!==appliedDays){
+    shiftWithinMonth(-(days-appliedDays));
+    appliedDays=days;
+   }
+   chart.style.transform=`translateX(${dx-days*dragStep}px)`;
   }
  });
  const finishDrag=e=>{
   if(!dragging||e.pointerId!==pointerId)return;
-  const dx=e.clientX-startX;
-  if(dragMoved){
-   const days=Math.round(dx/dragStep);
-   if(days)shiftWithinMonth(-days);
-   blockNextClick();
-  }
-  dragging=false;dragMoved=false;pointerId=null;chart.style.transform="";
+  if(dragMoved)blockNextClick();
+  dragging=false;dragMoved=false;appliedDays=0;pointerId=null;chart.style.transform="";
  };
  chart.addEventListener("pointerup",finishDrag);
  chart.addEventListener("pointercancel",e=>{
-  if(e.pointerId===pointerId){dragging=false;dragMoved=false;pointerId=null;chart.style.transform="";}
+  if(e.pointerId===pointerId){dragging=false;dragMoved=false;appliedDays=0;pointerId=null;chart.style.transform="";}
  });
  chart.addEventListener("lostpointercapture",()=>{
-  if(dragging){dragging=false;dragMoved=false;pointerId=null;chart.style.transform="";}
+  if(dragging){dragging=false;dragMoved=false;appliedDays=0;pointerId=null;chart.style.transform="";}
  });
  renderWindow();
 }
