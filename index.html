@@ -315,7 +315,7 @@ function attachStatsHandlers(){
  // One horizontal drag of about 30 px moves the chart by one day.
  // Update the selected day continuously while dragging, not only on release.
  let dragging=false,startX=0,startY=0,pointerId=null,dragMoved=false,appliedDays=0;
- const dragStep=30;
+ const dragStep=38;
  chart.addEventListener("pointerdown",e=>{
   if(e.pointerType==="mouse"&&e.button!==0)return;
   dragging=true;dragMoved=false;appliedDays=0;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
