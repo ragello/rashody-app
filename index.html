@@ -306,45 +306,52 @@ function attachStatsHandlers(){
   const col=e.target.closest("[data-date]");
   if(col)selectDate(new Date(col.dataset.date+"T12:00:00"));
  });
- // The daily chart is a continuous date strip: it can cross month boundaries.
+ // The daily chart is a continuous date strip: drag it horizontally to move by days.
  const shiftWithinMonth=delta=>{
   if(!delta)return;
   selectedDate=shiftDate(selectedDate,delta);
   renderWindow();
  };
- // Drag horizontally: roughly 30 px = one day. Vertical page scrolling stays native.
- let dragging=false,horizontal=false,startX=0,startY=0,lastShift=0,pointerId=null;
- const step=30;
+ // One horizontal drag of about 30 px moves the chart by one day.
+ // The chart follows the pointer while dragging; the date window is updated on release.
+ let dragging=false,startX=0,startY=0,pointerId=null,dragMoved=false;
+ const dragStep=30;
  chart.addEventListener("pointerdown",e=>{
   if(e.pointerType==="mouse"&&e.button!==0)return;
-  dragging=true;horizontal=false;startX=e.clientX;startY=e.clientY;lastShift=0;pointerId=e.pointerId;
+  dragging=true;dragMoved=false;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
+  try{chart.setPointerCapture(pointerId)}catch{}
  });
  chart.addEventListener("pointermove",e=>{
   if(!dragging||e.pointerId!==pointerId)return;
   const dx=e.clientX-startX,dy=e.clientY-startY;
-  if(!horizontal){
+  if(!dragMoved){
    if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
-   if(Math.abs(dy)>Math.abs(dx)*1.15){dragging=false;return;}
+   if(Math.abs(dy)>Math.abs(dx)*1.15){dragging=false;pointerId=null;try{chart.releasePointerCapture(e.pointerId)}catch{};return;}
    if(Math.abs(dx)<=Math.abs(dy))return;
-   horizontal=true;
-   try{chart.setPointerCapture(pointerId)}catch{}
+   dragMoved=true;
   }
-  const shift=Math.trunc(dx/step);
-  if(shift!==lastShift){
+  if(dragMoved){
    blockNextClick();
-   shiftWithinMonth(-(shift-lastShift));
-   lastShift=shift;
+   chart.style.transform=`translateX(${dx}px)`;
   }
-  chart.style.transform=`translateX(${dx-shift*step}px)`;
  });
- const stop=()=>{
-  if(!dragging&&!horizontal)return;
-  if(horizontal)blockNextClick();
-  dragging=false;horizontal=false;pointerId=null;chart.style.transform="";
+ const finishDrag=e=>{
+  if(!dragging||e.pointerId!==pointerId)return;
+  const dx=e.clientX-startX;
+  if(dragMoved){
+   const days=Math.round(dx/dragStep);
+   if(days)shiftWithinMonth(-days);
+   blockNextClick();
+  }
+  dragging=false;dragMoved=false;pointerId=null;chart.style.transform="";
  };
- chart.addEventListener("pointerup",stop);
- chart.addEventListener("pointercancel",stop);
- chart.addEventListener("lostpointercapture",()=>{dragging=false;horizontal=false;pointerId=null;chart.style.transform=""});
+ chart.addEventListener("pointerup",finishDrag);
+ chart.addEventListener("pointercancel",e=>{
+  if(e.pointerId===pointerId){dragging=false;dragMoved=false;pointerId=null;chart.style.transform="";}
+ });
+ chart.addEventListener("lostpointercapture",()=>{
+  if(dragging){dragging=false;dragMoved=false;pointerId=null;chart.style.transform="";}
+ });
  renderWindow();
 }
 
