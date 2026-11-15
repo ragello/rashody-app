@@ -84,6 +84,14 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 @media(max-width:600px){.auth{margin:5vh 12px 20px}}
 
 .notice{background:var(--purple2);padding:12px;border-radius:12px;font-size:13px;margin-top:12px}
+.account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.account-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:var(--shadow)}
+.account-card .account-name{font-size:13px;color:var(--muted)}
+.account-card .account-value{font-size:22px;font-weight:850;margin-top:5px;overflow-wrap:anywhere}
+.transfer-card{border:1px solid #ddd5f4;background:#faf8ff}
+.transfer-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.transfer-arrow{text-align:center;font-size:20px;color:var(--purple);font-weight:800}
+@media(max-width:600px){.account-grid{grid-template-columns:1fr}.transfer-row{grid-template-columns:1fr}.transfer-arrow{transform:rotate(90deg)}}
 .warn{background:var(--redbg);color:#a83248}
 .hidden{display:none!important}
 input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px;padding:3px;border:1px solid #ddd5f4;border-radius:8px;overflow:hidden;background:white;cursor:pointer}input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:0;border-radius:4px}
@@ -204,7 +212,12 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function color(v){return /^#[0-9a-f]{3,8}$/i.test(v||"")?v:"#d8d5e2"}
 function normalize(s){
  if(!s||typeof s!=="object")return fresh();
- return {currency:"BYN",transactions:Array.isArray(s.transactions)?s.transactions:[],categories:Array.isArray(s.categories)&&s.categories.length?s.categories:structuredClone(defaultCats)}
+ const transactions=Array.isArray(s.transactions)?s.transactions.map(t=>{
+   const x={...t};
+   if(!x.account && x.type!=="transfer")x.account="card";
+   return x;
+ }):[];
+ return {currency:"BYN",transactions,categories:Array.isArray(s.categories)&&s.categories.length?s.categories:structuredClone(defaultCats)}
 }
 function persistLocal(){try{localStorage.setItem(localKey(user.uid),JSON.stringify(state))}catch(e){status("Ошибка локального сохранения",true)}}
 function save(){
@@ -212,13 +225,25 @@ function save(){
  persistLocal();status("Сохранение…");clearTimeout(saveTimer);
  saveTimer=setTimeout(async()=>{
   const snapshot=JSON.parse(JSON.stringify(state));
-  try{await setDoc(userDoc(),{data:snapshot,updatedAt:serverTimestamp(),schemaVersion:1});status("Сохранено в облаке")}
+  try{await setDoc(userDoc(),{data:snapshot,updatedAt:serverTimestamp(),schemaVersion:2});status("Сохранено в облаке")}
   catch(e){console.error(e);status("Ошибка облака — проверь интернет и правила",true)}
  },500);
 }
 function change(fn){fn();save();render()}
 function total(type){return state.transactions.filter(t=>t.type===type).reduce((s,t)=>s+Number(t.amount||0),0)}
-function balance(){return total("income")-total("expense")}
+function accountBalance(account){
+ return state.transactions.reduce((sum,t)=>{
+   const amount=Number(t.amount||0);
+   if(t.type==="transfer"){
+     if(t.fromAccount===account)return sum-amount;
+     if(t.toAccount===account)return sum+amount;
+     return sum;
+   }
+   if((t.account||"card")!==account)return sum;
+   return sum+(t.type==="income"?amount:-amount);
+ },0);
+}
+function balance(){return accountBalance("card")+accountBalance("cash")}
 function category(id){return state.categories.find(c=>c.id===id)||{name:"Без категории",emoji:"📦",color:"#d8d5e2"}}
 function dateText(s){if(!s)return"";const a=s.split("-");return a.length===3?`${a[2]}.${a[1]}.${a[0]}`:s}
 function timeText(t){
@@ -238,11 +263,20 @@ function sortTransactions(arr){
 function summary(label,value,cls="",extra=""){
  return `<div class="card summary-card ${extra}"><div class="label">${label}</div><div class="big ${cls}">${value}</div></div>`;
 }
+function accountName(a){return a==="cash"?"Наличные":"Карта"}
 function txHtml(t,editable=true){
+ if(t.type==="transfer"){
+   return `<div class="tx">
+   <div class="dot" style="background:#eee9ff">↔️</div>
+   <div class="txmain"><strong>Перевод средств</strong><small>${dateText(t.date)} · ${timeText(t)} · ${accountName(t.fromAccount)} → ${accountName(t.toAccount)}</small></div>
+   <div class="amount">${money(t.amount)}</div>
+   ${editable?`<div class="actions"><button class="secondary" data-edit="${esc(t.id)}">Изм.</button></div>`:""}
+   </div>`;
+ }
  const c=category(t.categoryId);
  return `<div class="tx">
  <div class="dot" style="background:${color(c.color)}">${iconMarkup(c.emoji)}</div>
- <div class="txmain"><strong>${esc(c.name)}</strong><small>${dateText(t.date)} · ${timeText(t)}</small></div>
+ <div class="txmain"><strong>${esc(c.name)}</strong><small>${dateText(t.date)} · ${timeText(t)} · ${accountName(t.account||"card")}</small></div>
  <div class="amount ${t.type==="income"?"green":"red"}">${t.type==="income"?"+":"−"}${money(t.amount)}</div>
  ${editable?`<div class="actions"><button class="secondary" data-edit="${esc(t.id)}">Изм.</button></div>`:""}
  </div>`;
@@ -256,7 +290,7 @@ function monthKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function monthLabel(d){return new Intl.DateTimeFormat("ru-RU",{month:"long",year:"numeric"}).format(d).replace(/^./,m=>m.toUpperCase())}
 
 function buildStatsMarkup(){
- const key=monthKey(statsMonth), mt=state.transactions.filter(t=>(t.date||"").startsWith(key));
+ const key=monthKey(statsMonth), mt=state.transactions.filter(t=>(t.date||"").startsWith(key)&&t.type!=="transfer");
  const expenses=mt.filter(t=>t.type==="expense"), incomes=mt.filter(t=>t.type==="income");
  const exp=expenses.reduce((s,t)=>s+Number(t.amount||0),0), inc=incomes.reduce((s,t)=>s+Number(t.amount||0),0), net=inc-exp;
  const grouped=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:expenses.filter(t=>t.categoryId===c.id).reduce((s,t)=>s+Number(t.amount||0),0)})).filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
@@ -363,7 +397,13 @@ function render(){
  if(tab==="home"){
   const statsMarkup=buildStatsMarkup();
   $("main").innerHTML=`
-  <div class="grid">${summary("Остаток",money(balance()),balance()>=0?"":"red","balance-card")}${summary("Доходы",money(total("income")),"green","income-card")}${summary("Расходы",money(total("expense")),"red","expense-card")}</div>
+  <div class="grid">${summary("Общий баланс",money(balance()),balance()>=0?"":"red","balance-card")}${summary("Доходы",money(total("income")),"green","income-card")}${summary("Расходы",money(total("expense")),"red","expense-card")}</div>
+   <div class="account-grid">
+    <div class="account-card"><div class="account-name">💳 На карте</div><div class="account-value">${money(accountBalance("card"))}</div></div>
+    <div class="account-card"><div class="account-name">💵 Наличными</div><div class="account-value">${money(accountBalance("cash"))}</div></div>
+    <div class="account-card"><div class="account-name">💰 Всего</div><div class="account-value">${money(balance())}</div></div>
+   </div>
+   <div class="notice">Новые доходы и расходы по умолчанию записываются <b>на карту</b>. При добавлении операции можно выбрать наличные.</div>
   <div class="add-buttons">
    <button class="add-income" data-add="income">＋ Доход</button>
    <button class="add-expense" data-add="expense">− Расход</button>
@@ -378,7 +418,9 @@ function render(){
   <section class="ops-add"><h2>Добавить операцию:</h2><div class="add-buttons">
    <button class="add-income" data-add="income">＋ Доход</button>
    <button class="add-expense" data-add="expense">− Расход</button>
-  </div></section>
+  </div>
+  <button class="secondary" style="width:100%;margin-top:2px" data-transfer>↔ Перевести между картой и наличными</button>
+ </section>
   <div class="ops-history-title"><h2>История операций</h2></div>
   <div class="card">${tx.length?tx.map(t=>txHtml(t)).join(""):'<div class="empty">Операций пока нет</div>'}</div>`;
  }
@@ -393,6 +435,7 @@ function render(){
 
  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.goto;render()});
  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openTx(null,b.dataset.add));
+ document.querySelectorAll("[data-transfer]").forEach(b=>b.onclick=()=>openTransfer());
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openTx(b.dataset.edit));
  document.querySelectorAll("[data-catnew]").forEach(b=>b.onclick=()=>openCat());
  document.querySelectorAll("[data-editcat]").forEach(b=>b.onclick=()=>openCat(b.dataset.editcat));
@@ -411,54 +454,111 @@ function closeModal(){$("modal").innerHTML=""}
 
 function openTx(id=null,type="expense"){
  const old=id?state.transactions.find(t=>t.id===id):null;
+ if(old?.type==="transfer")return openTransfer(id);
  const chosenType=old?.type||type;
  const cats=state.categories.filter(c=>c.type===chosenType);
+ const chosenAccount=old?.account||"card";
  $("modal").innerHTML=`
- <div style="position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:5">
-  <div class="card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
-   <div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div>
-   <form id="txForm">
-    <div class="formgrid">
-     <div class="field"><label>Тип</label><select name="type" id="txType">
-      <option value="expense" ${chosenType==="expense"?"selected":""}>Расход</option>
-      <option value="income" ${chosenType==="income"?"selected":""}>Доход</option>
-     </select></div>
-     <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
-     <div class="field"><label>Категория</label><select name="categoryId" id="txCat">
-      ${cats.map(c=>`<option value="${esc(c.id)}" ${old?.categoryId===c.id?"selected":""}>${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("")}
-     </select></div>
-     <div class="field"><label>Дата</label><input name="date" type="date" required value="${esc(old?.date||today())}"></div>
-    </div>
-    <button>Сохранить</button>
-    ${old?'<button type="button" class="danger" id="deleteTx">Удалить</button>':""}
-   </form>
-  </div>
- </div>`;
+  <div style="position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:5">
+   <div class="card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
+    <div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div>
+    <form id="txForm">
+     <div class="formgrid">
+      <div class="field"><label>Тип</label><select name="type" id="txType">
+       <option value="expense" ${chosenType==="expense"?"selected":""}>Расход</option>
+       <option value="income" ${chosenType==="income"?"selected":""}>Доход</option>
+      </select></div>
+      <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
+      <div class="field"><label>Где находятся деньги</label><select name="account" id="txAccount">
+       <option value="card" ${chosenAccount==="card"?"selected":""}>💳 Карта</option>
+       <option value="cash" ${chosenAccount==="cash"?"selected":""}>💵 Наличные</option>
+      </select></div>
+      <div class="field"><label>Категория</label><select name="categoryId" id="txCat">
+       ${cats.map(c=>`<option value="${esc(c.id)}" ${old?.categoryId===c.id?"selected":""}>${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("")}
+      </select></div>
+      <div class="field full"><label>Дата</label><input name="date" type="date" required value="${esc(old?.date||today())}"></div>
+     </div>
+     <button>Сохранить</button>
+     ${old?'<button type="button" class="danger" id="deleteTx">Удалить</button>':""}
+    </form>
+   </div>
+  </div>`;
  $("close").onclick=closeModal;
  $("txType").onchange=()=>{
-  $("txCat").innerHTML=state.categories.filter(c=>c.type===$("txType").value).map(c=>`<option value="${esc(c.id)}">${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("");
+   $("txCat").innerHTML=state.categories.filter(c=>c.type===$("txType").value).map(c=>`<option value="${esc(c.id)}">${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("");
  };
  $("txForm").onsubmit=e=>{
-  e.preventDefault();
-  const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
-  if(!(amount>0))return alert("Сумма должна быть больше нуля");
-  const t={
-   id:old?.id||crypto.randomUUID(),
-   type:f.get("type"),amount,date:f.get("date"),
-   categoryId:f.get("categoryId"),
-   createdAt:old?.createdAt||Date.now()
-  };
-  change(()=>{
-   if(old)state.transactions=state.transactions.map(x=>x.id===old.id?t:x);
-   else state.transactions.push(t);
-  });
-  closeModal();
+   e.preventDefault();
+   const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
+   if(!(amount>0))return alert("Сумма должна быть больше нуля");
+   const t={id:old?.id||crypto.randomUUID(),type:f.get("type"),amount,date:f.get("date"),
+     categoryId:f.get("categoryId"),account:f.get("account"),createdAt:old?.createdAt||Date.now()};
+   change(()=>{
+     if(old)state.transactions=state.transactions.map(x=>x.id===old.id?t:x);
+     else state.transactions.push(t);
+   });
+   closeModal();
  };
  if(old)$("deleteTx").onclick=()=>{
-  if(confirm("Удалить операцию?")){
-   change(()=>state.transactions=state.transactions.filter(t=>t.id!==old.id));
+   if(confirm("Удалить операцию?")){
+     change(()=>state.transactions=state.transactions.filter(t=>t.id!==old.id));
+     closeModal();
+   }
+ };
+}
+
+function openTransfer(id=null){
+ const old=id?state.transactions.find(t=>t.id===id):null;
+ $("modal").innerHTML=`
+  <div style="position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:5">
+   <div class="card transfer-card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
+    <div class="between row"><h2>${old?"Изменить":"Перевести средства"}</h2><button class="secondary" id="close">Закрыть</button></div>
+    <form id="transferForm">
+     <div class="transfer-row">
+      <div class="field"><label>Откуда</label><select name="fromAccount">
+       <option value="card" ${old?.fromAccount!=="cash"?"selected":""}>💳 Карта</option>
+       <option value="cash" ${old?.fromAccount==="cash"?"selected":""}>💵 Наличные</option>
+      </select></div>
+      <div class="transfer-arrow">→</div>
+      <div class="field"><label>Куда</label><select name="toAccount">
+       <option value="cash" ${old?.toAccount!=="card"?"selected":""}>💵 Наличные</option>
+       <option value="card" ${old?.toAccount==="card"?"selected":""}>💳 Карта</option>
+      </select></div>
+     </div>
+     <div class="formgrid">
+      <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
+      <div class="field"><label>Дата</label><input name="date" type="date" required value="${esc(old?.date||today())}"></div>
+     </div>
+     <div class="notice">Перевод меняет только распределение денег между картой и наличными. Общий баланс и статистика доходов/расходов не меняются.</div>
+     <button>Сохранить перевод</button>
+     ${old?'<button type="button" class="danger" id="deleteTx">Удалить</button>':""}
+    </form>
+   </div>
+  </div>`;
+ $("close").onclick=closeModal;
+ $("transferForm").onsubmit=e=>{
+   e.preventDefault();
+   const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
+   if(!(amount>0))return alert("Сумма должна быть больше нуля");
+   if(f.get("fromAccount")===f.get("toAccount"))return alert("Выбери разные счета");
+   if(!old && amount>accountBalance(f.get("fromAccount")))return alert("Недостаточно средств на выбранном счёте");
+   const t={id:old?.id||crypto.randomUUID(),type:"transfer",amount,date:f.get("date"),
+     fromAccount:f.get("fromAccount"),toAccount:f.get("toAccount"),createdAt:old?.createdAt||Date.now()};
+   if(old){
+     const available=accountBalance(f.get("fromAccount"))+(old.fromAccount===f.get("fromAccount")?Number(old.amount):0);
+     if(amount>available)return alert("Недостаточно средств на выбранном счёте");
+   }
+   change(()=>{
+     if(old)state.transactions=state.transactions.map(x=>x.id===old.id?t:x);
+     else state.transactions.push(t);
+   });
    closeModal();
-  }
+ };
+ if(old)$("deleteTx").onclick=()=>{
+   if(confirm("Удалить перевод?")){
+     change(()=>state.transactions=state.transactions.filter(t=>t.id!==old.id));
+     closeModal();
+   }
  };
 }
 
@@ -580,7 +680,7 @@ onAuthStateChanged(auth,async u=>{
    state=normalize(snap.data().data);
    persistLocal();render();
   }else{
-   await setDoc(ref,{data:state,updatedAt:serverTimestamp(),schemaVersion:1});
+   await setDoc(ref,{data:state,updatedAt:serverTimestamp(),schemaVersion:2});
   }
   status("Сохранено в облаке");
  }catch(e){console.error(e);status("Ошибка облака — проверь настройки",true)}
