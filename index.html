@@ -153,8 +153,20 @@ input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px
 .sticky-tabs{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:8px;padding-bottom:8px}
 button,.card,.chip,.row{transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
 button:active{transform:scale(.98)}
-.card{animation:fadeUp .32s ease both}
-@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.card{animation:none}
+.summary-card{transition:box-shadow .18s ease,transform .18s ease}
+.balance-card:hover{transform:translateY(-1px)}
+.modal-backdrop{position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:1000}
+.modal-backdrop>.card{animation:none}
+.transfer-swap{width:42px;height:42px;padding:0;border-radius:50%;background:var(--purple2);color:var(--purple);font-size:20px;display:grid;place-items:center;align-self:center}
+.color-tools{display:grid;grid-template-columns:1fr;gap:10px}
+.color-tool-row{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center}
+.color-tool-row label{font-size:13px;color:var(--muted);font-weight:650}
+.color-tool-row input[type=range]{width:100%;accent-color:var(--purple)}
+.color-preview-large{width:58px;height:46px;border-radius:12px;border:1px solid var(--line);box-shadow:inset 0 0 0 1px #0000000a}
+.stat-toggle-row{display:flex;justify-content:center;margin:-2px 0 14px}
+.stat-toggle-control{user-select:none;-webkit-tap-highlight-color:transparent}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -243,7 +255,7 @@ function save(){
  persistLocal();status("Сохранение…");clearTimeout(saveTimer);
  saveTimer=setTimeout(async()=>{
   const snapshot=JSON.parse(JSON.stringify(state));
-  try{await setDoc(userDoc(),{data:snapshot,updatedAt:serverTimestamp(),schemaVersion:2});status("Сохранено в облаке")}
+  try{await setDoc(userDoc(),{data:snapshot,updatedAt:serverTimestamp(),schemaVersion:3});status("Сохранено в облаке")}
   catch(e){console.error(e);status("Ошибка облака — проверь интернет и правила",true)}
  },500);
 }
@@ -311,100 +323,58 @@ function buildStatsMarkup(){
  const key=monthKey(statsMonth), mt=state.transactions.filter(t=>(t.date||"").startsWith(key)&&t.type!=="transfer");
  const expenses=mt.filter(t=>t.type==="expense"), incomes=mt.filter(t=>t.type==="income");
  const exp=expenses.reduce((s,t)=>s+Number(t.amount||0),0), inc=incomes.reduce((s,t)=>s+Number(t.amount||0),0), net=inc-exp;
- const grouped=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:expenses.filter(t=>t.categoryId===c.id).reduce((s,t)=>s+Number(t.amount||0),0)})).filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
+ const elapsedDays=Math.max(1,Math.min(new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate(),statsMonth.getFullYear()===new Date().getFullYear()&&statsMonth.getMonth()===new Date().getMonth()?new Date().getDate():statsMonth.getTime()<new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime()?new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate():1));
+ const avg=exp/elapsedDays, largest=expenses.reduce((m,t)=>Math.max(m,Number(t.amount)||0),0), savePercent=inc>0?Math.round(net/inc*100):0;
+ return `<section class="section" id="monthlyStats">
+  <div style="text-align:center;margin-bottom:10px"><div class="muted" style="font-size:14px;font-weight:700">Статистика за</div></div>
+  <div class="month-nav"><button class="secondary" id="prevMonth">‹</button><h2 style="margin:0;text-align:center;flex:1">${monthLabel(statsMonth)}</h2><button class="secondary" id="nextMonth">›</button></div>
+  <section class="section"><h2>Показатели месяца</h2><div class="card"><div class="stat-pair"><div class="stat-mini"><span class="label">Операций</span><strong>${mt.length}</strong></div><div class="stat-mini"><span class="label">Средний расход в день</span><strong>${money(avg)}</strong></div><div class="stat-mini"><span class="label">Самый крупный расход</span><strong>${money(largest)}</strong></div><div class="stat-mini"><span class="label">Доля остатка от дохода</span><strong>${inc>0?savePercent+"%":"—"}</strong></div></div></div></section>
+  <section class="section"><div class="between row"><h2>Структура за месяц</h2></div><div class="stat-toggle-row"><div class="stat-toggle-control" data-stat="pie" data-mode="expense"><span>Расходы</span><span>Доходы</span><button type="button" aria-hidden="true"></button></div></div><div class="card" id="pieStatCard"></div></section>
+  <section class="section"><div class="between row"><h2>По дням</h2><span class="muted" id="dailyMonthLabel">${monthLabel(statsMonth)}</span></div><div class="stat-toggle-row"><div class="stat-toggle-control" data-stat="daily" data-mode="expense"><span>Расходы</span><span>Доходы</span><button type="button" aria-hidden="true"></button></div></div><div class="card"><div class="daily-chart" id="dailyChart"></div><div class="month-position" aria-hidden="true"><span id="monthPositionThumb"></span></div><div class="day-total" id="dayTotal"></div><div id="dayBreakdown" class="day-breakdown"></div></div></section>
+ </section>`;
+}
+
+function renderStats(){
+ const mode=window.__statsMode||{pie:"expense",daily:"expense"};
+ const key=monthKey(statsMonth), list=state.transactions.filter(t=>(t.date||"").startsWith(key)&&t.type===mode.pie);
+ const grouped=state.categories.filter(c=>c.type===mode.pie).map(c=>({...c,sum:list.filter(t=>t.categoryId===c.id).reduce((s,t)=>s+Number(t.amount||0),0)})).filter(c=>c.sum>0).sort((a,b)=>b.sum-a.sum);
  const totalCat=grouped.reduce((s,c)=>s+c.sum,0); let angle=0;
  const stops=grouped.map(c=>{const a=angle;angle+=totalCat?c.sum/totalCat*360:0;return `${color(c.color)} ${a}deg ${angle}deg`});
  const pieStyle=stops.length?`background:conic-gradient(${stops.join(",")})`:"background:#eeeaf5";
- const days=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();
- const daily=Array.from({length:days},(_,i)=>{const day=i+1, list=expenses.filter(t=>Number((t.date||"").slice(8,10))===day);return {day,sum:list.reduce((a,t)=>a+Number(t.amount||0),0),parts:state.categories.map(c=>({color:c.color,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(x=>x.sum>0)}});
- const elapsedDays=Math.max(1,Math.min(days,statsMonth.getFullYear()===new Date().getFullYear()&&statsMonth.getMonth()===new Date().getMonth()?new Date().getDate():statsMonth.getTime()<new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime()?days:0)); const avg=elapsedDays?exp/elapsedDays:0, largest=expenses.reduce((m,t)=>Math.max(m,Number(t.amount)||0),0), savePercent=inc>0?Math.round(net/inc*100):0;
- return `<section class="section" id="monthlyStats"><div style="text-align:center;margin-bottom:10px"><div class="muted" style="font-size:14px;font-weight:700">Статистика за</div></div><div class="month-nav"><button class="secondary" id="prevMonth">‹</button><h2 style="margin:0;text-align:center;flex:1">${monthLabel(statsMonth)}</h2><button class="secondary" id="nextMonth">›</button></div>
- <section class="section"><h2>Показатели месяца</h2><div class="card"><div class="stat-pair"><div class="stat-mini"><span class="label">Операций</span><strong>${mt.length}</strong></div><div class="stat-mini"><span class="label">Средний расход в день</span><strong>${money(avg)}</strong></div><div class="stat-mini"><span class="label">Самый крупный расход</span><strong>${money(largest)}</strong></div><div class="stat-mini"><span class="label">Доля остатка от дохода</span><strong>${inc>0?savePercent+"%":"—"}</strong></div></div></div></section>
- <section class="section"><h2>Структура расходов за месяц</h2><div class="card">${grouped.length?`<div class="pie-wrap"><div class="pie" style="${pieStyle}"><div class="pie-hole"><div><strong>${money(exp)}</strong><div class="muted">Всего</div></div></div>${(()=>{let a=0;return grouped.map(c=>{const mid=a+(c.sum/(totalCat||1)*360)/2;a+=c.sum/(totalCat||1)*360;const r=mid*Math.PI/180;const x=50+37*Math.sin(r),y=50-37*Math.cos(r);return `<span class="pie-emoji" style="left:${x}%;top:${y}%" title="${esc(c.name)}">${iconMarkup(c.emoji)}</span>`}).join("")})()}</div></div><div class="legend-table">${grouped.map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(totalCat||1)*100)}%</strong></div>`).join("")}</div>`:'<div class="empty">Добавь расходы, чтобы увидеть диаграмму</div>'}</div></section>
- <section class="section"><div class="between row"><h2>Расходы по дням</h2><span class="muted" id="dailyMonthLabel">${monthLabel(statsMonth)}</span></div><div class="card"><div class="daily-chart" id="dailyChart"></div><div class="month-position" aria-hidden="true"><span id="monthPositionThumb"></span></div><div class="day-total" id="dayTotal"></div><div id="dayBreakdown" class="day-breakdown"></div></div></section></section>`;
- function dayBar(d){const max=Math.max(1,...daily.map(x=>x.sum));const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;return `<div class="day-col" data-day="${d.day}" title="${d.day} число"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${d.day}</span></div>`}
+ const title=mode.pie==="expense"?"Расходы":"Доходы";
+ const card=$("pieStatCard");
+ if(card)card.innerHTML=grouped.length?`<div class="pie-wrap"><div class="pie" style="${pieStyle}"><div class="pie-hole"><div><strong>${money(totalCat)}</strong><div class="muted">Всего ${title.toLowerCase()}</div></div></div>${(()=>{let a=0;return grouped.map(c=>{const mid=a+(c.sum/(totalCat||1)*360)/2;a+=c.sum/(totalCat||1)*360;const r=mid*Math.PI/180,x=50+37*Math.sin(r),y=50-37*Math.cos(r);return `<span class="pie-emoji" style="left:${x}%;top:${y}%" title="${esc(c.name)}">${iconMarkup(c.emoji)}</span>`}).join("")})()}</div></div><div class="legend-table">${grouped.map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(totalCat||1)*100)}%</strong></div>`).join("")}</div>`:`<div class="empty">Добавь ${mode.pie==="expense"?"расходы":"доходы"}, чтобы увидеть диаграмму</div>`;
+ renderDailyStats();
 }
-function attachStatsHandlers(){
- const prev=$("prevMonth"),next=$("nextMonth");
- if(prev)prev.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);render()};
- if(next)next.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);render()};
+
+function renderDailyStats(){
+ const mode=window.__statsMode||{pie:"expense",daily:"expense"};
  const chart=$("dailyChart"),out=$("dayTotal"),breakdown=$("dayBreakdown"),thumb=$("monthPositionThumb"),monthLabelEl=$("dailyMonthLabel");
  if(!chart)return;
- let selectedDate=new Date();
- if(statsMonth.getFullYear()!==selectedDate.getFullYear()||statsMonth.getMonth()!==selectedDate.getMonth()) selectedDate=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0);
+ let selectedDate=window.__selectedStatsDate?new Date(window.__selectedStatsDate):new Date();
+ if(statsMonth.getFullYear()!==selectedDate.getFullYear()||statsMonth.getMonth()!==selectedDate.getMonth())selectedDate=new Date(statsMonth.getFullYear(),statsMonth.getMonth(),1);
  selectedDate.setHours(12,0,0,0);
  const dateKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
- const dateData=d=>{const key=dateKey(d),list=state.transactions.filter(t=>t.type==="expense"&&t.date===key);const sum=list.reduce((a,t)=>a+Number(t.amount||0),0);const parts=state.categories.filter(c=>c.type==="expense").map(c=>({...c,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(c=>c.sum>0);return {date:new Date(d),key,sum,parts}};
+ const dateData=d=>{const key=dateKey(d),list=state.transactions.filter(t=>t.type===mode.daily&&t.date===key);const sum=list.reduce((a,t)=>a+Number(t.amount||0),0);const parts=state.categories.filter(c=>c.type===mode.daily).map(c=>({...c,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(c=>c.sum>0);return {date:new Date(d),key,sum,parts}};
  const shiftDate=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
  const renderWindow=()=>{
-  const visible=Array.from({length:7},(_,i)=>dateData(shiftDate(selectedDate,i-3)));
-  const max=Math.max(1,...visible.map(d=>d.sum));
-  chart.innerHTML=visible.map(d=>{const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3;const selected=d.key===dateKey(selectedDate);return `<div class="day-col ${selected?'selected':''}" data-date="${d.key}"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${String(d.date.getDate()).padStart(2,"0")}.${String(d.date.getMonth()+1).padStart(2,"0")}</span></div>`}).join("");
+  const visible=Array.from({length:7},(_,i)=>dateData(shiftDate(selectedDate,i-3))),max=Math.max(1,...visible.map(d=>d.sum));
+  chart.innerHTML=visible.map(d=>{const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3,selected=d.key===dateKey(selectedDate);return `<div class="day-col ${selected?'selected':''}" data-date="${d.key}"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${String(d.date.getDate()).padStart(2,"0")}.${String(d.date.getMonth()+1).padStart(2,"0")}</span></div>`}).join("");
   const d=dateData(selectedDate);out.innerHTML=`<div class="selected-day-summary"><div class="selected-day-date">${String(selectedDate.getDate()).padStart(2,"0")}.${String(selectedDate.getMonth()+1).padStart(2,"0")}.${selectedDate.getFullYear()}</div><div class="selected-day-amount">${money(d.sum)}</div></div>`;
-  breakdown.innerHTML=d.parts.length?`<div class="day-break-title">Расходы по категориям</div><div class="legend-table">${[...d.parts].sort((a,b)=>b.sum-a.sum).map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(d.sum||1)*100)}%</strong></div>`).join("")}</div>`:'<div class="muted">В этот день расходов нет</div>';
-  const daysInMonth=new Date(selectedDate.getFullYear(),selectedDate.getMonth()+1,0).getDate();
-  if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;
-  if(monthLabelEl)monthLabelEl.textContent=monthLabel(selectedDate);
+  const label=mode.daily==="expense"?"Расходы":"Доходы";
+  breakdown.innerHTML=d.parts.length?`<div class="day-break-title">${label} по категориям</div><div class="legend-table">${[...d.parts].sort((a,b)=>b.sum-a.sum).map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(d.sum||1)*100)}%</strong></div>`).join("")}</div>`:`<div class="muted">В этот день нет ${mode.daily==="expense"?"расходов":"доходов"}.</div>`;
+  const daysInMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;if(monthLabelEl)monthLabelEl.textContent=monthLabel(statsMonth);
  };
- const selectDate=d=>{selectedDate=new Date(d);selectedDate.setHours(12,0,0,0);renderWindow()};
- let suppressClick=false,clickResetTimer=null;
- const blockNextClick=()=>{
-  suppressClick=true;
-  clearTimeout(clickResetTimer);
-  clickResetTimer=setTimeout(()=>{suppressClick=false},700);
- };
- chart.addEventListener("click",e=>{
-  if(suppressClick){suppressClick=false;clearTimeout(clickResetTimer);e.preventDefault();e.stopPropagation();return;}
-  const col=e.target.closest("[data-date]");
-  if(col)selectDate(new Date(col.dataset.date+"T12:00:00"));
- });
- // The daily chart is a continuous date strip: drag it horizontally to move by days.
- const shiftWithinMonth=delta=>{
-  if(!delta)return;
-  selectedDate=shiftDate(selectedDate,delta);
-  renderWindow();
- };
- // One horizontal drag of about 30 px moves the chart by one day.
- // Update the selected day continuously while dragging, not only on release.
- let dragging=false,startX=0,startY=0,pointerId=null,dragMoved=false,appliedDays=0;
- const dragStep=38;
- chart.addEventListener("pointerdown",e=>{
-  if(e.pointerType==="mouse"&&e.button!==0)return;
-  dragging=true;dragMoved=false;appliedDays=0;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
-  try{chart.setPointerCapture(pointerId)}catch{}
- });
- chart.addEventListener("pointermove",e=>{
-  if(!dragging||e.pointerId!==pointerId)return;
-  const dx=e.clientX-startX,dy=e.clientY-startY;
-  if(!dragMoved){
-   if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
-   if(Math.abs(dy)>Math.abs(dx)*1.15){dragging=false;pointerId=null;try{chart.releasePointerCapture(e.pointerId)}catch{};return;}
-   if(Math.abs(dx)<=Math.abs(dy))return;
-   dragMoved=true;
-  }
-  if(dragMoved){
-   blockNextClick();
-   const days=Math.round(dx/dragStep);
-   if(days!==appliedDays){
-    shiftWithinMonth(-(days-appliedDays));
-    appliedDays=days;
-   }
-   chart.style.transform=`translateX(${dx-days*dragStep}px)`;
-  }
- });
- const finishDrag=e=>{
-  if(!dragging||e.pointerId!==pointerId)return;
-  if(dragMoved)blockNextClick();
-  dragging=false;dragMoved=false;appliedDays=0;pointerId=null;chart.style.transform="";
- };
- chart.addEventListener("pointerup",finishDrag);
- chart.addEventListener("pointercancel",e=>{
-  if(e.pointerId===pointerId){dragging=false;dragMoved=false;appliedDays=0;pointerId=null;chart.style.transform="";}
- });
- chart.addEventListener("lostpointercapture",()=>{
-  if(dragging){dragging=false;dragMoved=false;appliedDays=0;pointerId=null;chart.style.transform="";}
- });
+ chart.onclick=e=>{const col=e.target.closest("[data-date]");if(col){window.__selectedStatsDate=col.dataset.date;renderDailyStats()}};
  renderWindow();
+}
+
+function attachStatsHandlers(){
+ const prev=$("prevMonth"),next=$("nextMonth");
+ if(prev)prev.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);window.__selectedStatsDate=null;render()};
+ if(next)next.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,1);window.__selectedStatsDate=null;render()};
+ window.__statsMode=window.__statsMode||{pie:"expense",daily:"expense"};
+ renderStats();
 }
 
 function render(){
@@ -415,13 +385,17 @@ function render(){
  if(tab==="home"){
   const statsMarkup=buildStatsMarkup();
   $("main").innerHTML=`
-  <div class="grid">${summary("Общий баланс",money(balance()),balance()>=0?"":"red","balance-card")}${summary("Доходы",money(total("income")),"green","income-card")}${summary("Расходы",money(total("expense")),"red","expense-card")}</div>
-   <div class="account-grid">
-    <div class="account-card"><div class="account-name">💳 На карте</div><div class="account-value">${money(accountBalance("card"))}</div></div>
-    <div class="account-card"><div class="account-name">💵 Наличными</div><div class="account-value">${money(accountBalance("cash"))}</div></div>
-    <div class="account-card"><div class="account-name">💰 Всего</div><div class="account-value">${money(balance())}</div></div>
-   </div>
-   <div class="notice">Новые доходы и расходы по умолчанию записываются <b>на карту</b>. При добавлении операции можно выбрать наличные.</div>
+  <div class="card summary-card balance-card" id="balanceSummary" role="button" tabindex="0" aria-expanded="false">
+   <div class="label">Общий баланс</div>
+   <div class="big ${balance()<0?"red":""}">${money(balance())}</div>
+   <div class="balance-details" id="balanceDetails"><div>
+    <div class="account-grid">
+     <div class="account-card"><div class="account-name">💳 На карте</div><div class="account-value">${money(accountBalance("card"))}</div></div>
+     <div class="account-card"><div class="account-name">💵 Наличными</div><div class="account-value">${money(accountBalance("cash"))}</div></div>
+    </div>
+   </div></div>
+  </div>
+  <div class="grid">${summary("Доходы",money(total("income")),"green","income-card")}${summary("Расходы",money(total("expense")),"red","expense-card")}</div>
   <div class="add-buttons">
    <button class="add-income" data-add="income">＋ Доход</button>
    <button class="add-expense" data-add="expense">− Расход</button>
@@ -452,6 +426,7 @@ function render(){
  }
 
  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.goto;render()});
+ const balanceSummary=$("balanceSummary"); if(balanceSummary){const toggle=()=>{const d=$("balanceDetails");if(d){d.classList.toggle("open");balanceSummary.setAttribute("aria-expanded",d.classList.contains("open"))}}; balanceSummary.onclick=toggle; balanceSummary.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle()}}}
  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openTx(null,b.dataset.add));
  document.querySelectorAll("[data-transfer]").forEach(b=>b.onclick=()=>openTransfer());
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openTx(b.dataset.edit));
@@ -477,7 +452,7 @@ function openTx(id=null,type="expense"){
  const cats=state.categories.filter(c=>c.type===chosenType);
  const chosenAccount=old?.account||"card";
  $("modal").innerHTML=`
-  <div style="position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:5">
+  <div class="modal-backdrop">
    <div class="card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
     <div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div>
     <form id="txForm">
@@ -528,7 +503,7 @@ function openTx(id=null,type="expense"){
 function openTransfer(id=null){
  const old=id?state.transactions.find(t=>t.id===id):null;
  $("modal").innerHTML=`
-  <div style="position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:5">
+  <div class="modal-backdrop">
    <div class="card transfer-card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
     <div class="between row"><h2>${old?"Изменить":"Перевести средства"}</h2><button class="secondary" id="close">Закрыть</button></div>
     <form id="transferForm">
@@ -537,7 +512,7 @@ function openTransfer(id=null){
        <option value="card" ${old?.fromAccount!=="cash"?"selected":""}>💳 Карта</option>
        <option value="cash" ${old?.fromAccount==="cash"?"selected":""}>💵 Наличные</option>
       </select></div>
-      <div class="transfer-arrow">→</div>
+      <button type="button" class="transfer-swap" id="swapTransfer" title="Поменять местами">↔</button>
       <div class="field"><label>Куда</label><select name="toAccount">
        <option value="cash" ${old?.toAccount!=="card"?"selected":""}>💵 Наличные</option>
        <option value="card" ${old?.toAccount==="card"?"selected":""}>💳 Карта</option>
@@ -554,6 +529,7 @@ function openTransfer(id=null){
    </div>
   </div>`;
  $("close").onclick=closeModal;
+ $("swapTransfer").onclick=()=>{const f=$("transferForm");const from=f.elements.fromAccount.value;f.elements.fromAccount.value=f.elements.toAccount.value;f.elements.toAccount.value=from};
  $("transferForm").onsubmit=e=>{
    e.preventDefault();
    const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
@@ -597,7 +573,7 @@ function openCat(id=null){
  const old=id?state.categories.find(c=>c.id===id):null;
  const selectedEmoji=old?.emoji||"🛒";
  $("modal").innerHTML=`
- <div style="position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:5">
+ <div class="modal-backdrop">
   <div class="card" style="width:min(540px,100%);max-height:92vh;overflow:auto">
    <div class="between row"><h2>${old?"Изменить":"Новая"} категория</h2><button class="secondary" id="close">Закрыть</button></div>
    <form id="catForm">
@@ -615,7 +591,13 @@ function openCat(id=null){
      
     </div>
     <div class="field"><label>Цвет категории</label>
-     <input name="color" id="catColor" type="color" value="${color(old?.color||"#b9a8f5")}">
+     <input type="hidden" name="color" id="catColor" value="${color(old?.color||suggestCategoryColor(old?.id))}">
+     <div class="color-tools">
+      <div class="row" style="align-items:center;gap:10px"><div id="catColorPreview" class="color-preview-large"></div><div class="muted">${old?"Текущий цвет можно изменить":"Предложен свободный цвет"}</div></div>
+      <div class="color-tool-row"><label>Оттенок</label><input id="catHue" type="range" min="0" max="360" step="1" value="0"></div>
+      <div class="color-tool-row"><label>Насыщенность</label><input id="catSat" type="range" min="0" max="100" step="1" value="100"></div>
+      <div class="color-tool-row"><label>Яркость</label><input id="catBright" type="range" min="0" max="100" step="1" value="100"></div>
+     </div>
     </div>
     <button>Сохранить</button>
    </form>
@@ -631,6 +613,13 @@ function openCat(id=null){
   modal.querySelector("#emojiCancel").onclick=()=>modal.remove();
   modal.querySelector("#emojiChoose").onclick=()=>{$("emojiValue").value=pending;$("emojiSelected").innerHTML=iconMarkup(pending);modal.remove()};
  };
+ const initialColor=color(old?.color||suggestCategoryColor(old?.id));
+ const hsv=hexToHsv(initialColor);
+ $("catHue").value=Math.round(hsv[0]);
+ $("catSat").value=100;
+ $("catBright").value=100;
+ const syncColor=()=>{const v=hsvToHex(Number($("catHue").value),Number($("catSat").value)/100,Number($("catBright").value)/100);$("catColor").value=v;$("catColorPreview").style.background=v};
+ [$("catHue"),$("catSat"),$("catBright")].forEach(x=>x.oninput=syncColor); syncColor();
  $("catForm").onsubmit=e=>{
   e.preventDefault();
   const f=new FormData(e.currentTarget);
@@ -698,7 +687,7 @@ onAuthStateChanged(auth,async u=>{
    state=normalize(snap.data().data);
    persistLocal();render();
   }else{
-   await setDoc(ref,{data:state,updatedAt:serverTimestamp(),schemaVersion:2});
+   await setDoc(ref,{data:state,updatedAt:serverTimestamp(),schemaVersion:3});
   }
   status("Сохранено в облаке");
  }catch(e){console.error(e);status("Ошибка облака — проверь настройки",true)}
