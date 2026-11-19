@@ -167,7 +167,7 @@ button:active{transform:scale(.98)}
 .stat-toggle-row{display:flex;justify-content:center;margin:-2px 0 14px}
 .stat-toggle-control{user-select:none;-webkit-tap-highlight-color:transparent}
 @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.seg-toggle{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);background:#f4f3f8;border-radius:12px;padding:3px;gap:3px}.seg-toggle button{border:0;background:transparent;color:var(--muted);border-radius:9px;padding:9px 8px;font-weight:700;cursor:pointer}.seg-toggle button.active{background:#fff;color:var(--purple);box-shadow:0 1px 4px rgba(0,0,0,.12)}</style>
+</style>
 </head>
 <body>
 
@@ -457,13 +457,10 @@ function openTx(id=null,type="expense"){
     <div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div>
     <form id="txForm">
      <div class="formgrid">
-      <div class="field"><label>Тип операции</label>
-      <div class="seg-toggle type-toggle" data-type-toggle>
-       <button type="button" data-optype="expense">Расход</button>
-       <button type="button" data-optype="income">Доход</button>
-      </div>
-      <input type="hidden" name="type" id="txType" value="${old?.type||"expense"}">
-     </div>
+      <div class="field"><label>Тип</label><select name="type" id="txType">
+       <option value="expense" ${chosenType==="expense"?"selected":""}>Расход</option>
+       <option value="income" ${chosenType==="income"?"selected":""}>Доход</option>
+      </select></div>
       <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
       <div class="field"><label>Где находятся деньги</label><select name="account" id="txAccount">
        <option value="card" ${chosenAccount==="card"?"selected":""}>💳 Карта</option>
@@ -480,14 +477,6 @@ function openTx(id=null,type="expense"){
    </div>
   </div>`;
  $("close").onclick=closeModal;
- const syncTxToggles=()=>{
-   const typeVal=$("txType")?.value||"expense", accVal=$("txAccount")?.value||"card";
-   document.querySelectorAll("[data-optype]").forEach(b=>b.classList.toggle("active",b.dataset.optype===typeVal));
-   document.querySelectorAll("[data-account]").forEach(b=>b.classList.toggle("active",b.dataset.account===accVal));
- };
- document.querySelectorAll("[data-optype]").forEach(b=>b.onclick=()=>{$("txType").value=b.dataset.optype;syncTxToggles()});
- document.querySelectorAll("[data-account]").forEach(b=>b.onclick=()=>{$("txAccount").value=b.dataset.account;syncTxToggles()});
- syncTxToggles();
  $("txType").onchange=()=>{
    $("txCat").innerHTML=state.categories.filter(c=>c.type===$("txType").value).map(c=>`<option value="${esc(c.id)}">${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("");
  };
@@ -503,8 +492,6 @@ function openTx(id=null,type="expense"){
    });
    closeModal();
  };
- $("fromLabel").textContent=accountName(transferFrom);$("toLabel").textContent=accountName(transferTo);
- if(old){transferFrom=old.fromAccount||"card";transferTo=old.toAccount||"cash";$("fromLabel").textContent=accountName(transferFrom);$("toLabel").textContent=accountName(transferTo)}
  if(old)$("deleteTx").onclick=()=>{
    if(confirm("Удалить операцию?")){
      change(()=>state.transactions=state.transactions.filter(t=>t.id!==old.id));
@@ -520,17 +507,25 @@ function openTransfer(id=null){
    <div class="card transfer-card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
     <div class="between row"><h2>${old?"Изменить":"Перевести средства"}</h2><button class="secondary" id="close">Закрыть</button></div>
     <form id="transferForm">
-      <div class="transfer-inline">
-       <div class="transfer-side"><span>Откуда</span><strong id="fromLabel">Карта</strong></div>
-       <button type="button" class="swap" id="swapTransfer" title="Поменять направление">↔</button>
-       <div class="transfer-side"><span>Куда</span><strong id="toLabel">Наличные</strong></div>
-       <input name="amount" class="amount-input" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal" placeholder="Сумма">
-       <input name="date" type="date" required value="${esc(old?.date||today())}" class="date-input">
-       <button type="submit">Перевести</button>
-      </div>
-      <div class="notice">Перевод меняет только распределение денег между картой и наличными. Общий баланс и статистика доходов/расходов не меняются.</div>
-      ${old?'<button type="button" class="danger" id="deleteTx">Удалить</button>':""}
-     </form>
+     <div class="transfer-row">
+      <div class="field"><label>Откуда</label><select name="fromAccount">
+       <option value="card" ${old?.fromAccount!=="cash"?"selected":""}>💳 Карта</option>
+       <option value="cash" ${old?.fromAccount==="cash"?"selected":""}>💵 Наличные</option>
+      </select></div>
+      <button type="button" class="transfer-swap" id="swapTransfer" title="Поменять местами">↔</button>
+      <div class="field"><label>Куда</label><select name="toAccount">
+       <option value="cash" ${old?.toAccount!=="card"?"selected":""}>💵 Наличные</option>
+       <option value="card" ${old?.toAccount==="card"?"selected":""}>💳 Карта</option>
+      </select></div>
+     </div>
+     <div class="formgrid">
+      <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
+      <div class="field"><label>Дата</label><input name="date" type="date" required value="${esc(old?.date||today())}"></div>
+     </div>
+     <div class="notice">Перевод меняет только распределение денег между картой и наличными. Общий баланс и статистика доходов/расходов не меняются.</div>
+     <button>Сохранить перевод</button>
+     ${old?'<button type="button" class="danger" id="deleteTx">Удалить</button>':""}
+    </form>
    </div>
   </div>`;
  $("close").onclick=closeModal;
@@ -539,12 +534,12 @@ function openTransfer(id=null){
    e.preventDefault();
    const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
    if(!(amount>0))return alert("Сумма должна быть больше нуля");
-   if(transferFrom===transferTo)return alert("Выбери разные счета");
-   if(!old && amount>accountBalance(transferFrom))return alert("Недостаточно средств на выбранном счёте");
+   if(f.get("fromAccount")===f.get("toAccount"))return alert("Выбери разные счета");
+   if(!old && amount>accountBalance(f.get("fromAccount")))return alert("Недостаточно средств на выбранном счёте");
    const t={id:old?.id||crypto.randomUUID(),type:"transfer",amount,date:f.get("date"),
-     fromAccount:transferFrom,toAccount:transferTo,createdAt:old?.createdAt||Date.now()};
+     fromAccount:f.get("fromAccount"),toAccount:f.get("toAccount"),createdAt:old?.createdAt||Date.now()};
    if(old){
-     const available=accountBalance(transferFrom)+(old.fromAccount===transferFrom?Number(old.amount):0);
+     const available=accountBalance(f.get("fromAccount"))+(old.fromAccount===f.get("fromAccount")?Number(old.amount):0);
      if(amount>available)return alert("Недостаточно средств на выбранном счёте");
    }
    change(()=>{
@@ -553,8 +548,6 @@ function openTransfer(id=null){
    });
    closeModal();
  };
- $("fromLabel").textContent=accountName(transferFrom);$("toLabel").textContent=accountName(transferTo);
- if(old){transferFrom=old.fromAccount||"card";transferTo=old.toAccount||"cash";$("fromLabel").textContent=accountName(transferFrom);$("toLabel").textContent=accountName(transferTo)}
  if(old)$("deleteTx").onclick=()=>{
    if(confirm("Удалить перевод?")){
      change(()=>state.transactions=state.transactions.filter(t=>t.id!==old.id));
@@ -625,7 +618,7 @@ function openCat(id=null){
  $("catHue").value=Math.round(hsv[0]);
  $("catSat").value=100;
  $("catBright").value=100;
- const syncColor=()=>{const v=hsvToHex(Number($("catHue").value),Number($("catSat").value)/100,Number($("catBright").value)/100);$("catColor").value=v;$("catColorPreview").style.background=v;$("catColorPreview").style.backgroundImage="none"};
+ const syncColor=()=>{const v=hsvToHex(Number($("catHue").value),Number($("catSat").value)/100,Number($("catBright").value)/100);$("catColor").value=v;$("catColorPreview").style.background=v};
  [$("catHue"),$("catSat"),$("catBright")].forEach(x=>x.oninput=syncColor); syncColor();
  $("catForm").onsubmit=e=>{
   e.preventDefault();
