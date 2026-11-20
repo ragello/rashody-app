@@ -89,9 +89,13 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 .account-card .account-name{font-size:13px;color:var(--muted)}
 .account-card .account-value{font-size:22px;font-weight:850;margin-top:5px;overflow-wrap:anywhere}
 .transfer-card{border:1px solid #ddd5f4;background:#faf8ff}
-.transfer-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.transfer-row{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);gap:10px;align-items:center}
+.transfer-side{min-width:0}
+.transfer-side-value{display:flex;align-items:center;justify-content:center;min-height:43px;padding:9px 10px;border:1px solid var(--line);border-radius:13px;background:#fff;font-weight:800;text-align:center}
+.transfer-side-value.card-side{color:#5742ad}
+.transfer-side-value.cash-side{color:#16866a}
 .transfer-arrow{text-align:center;font-size:20px;color:var(--purple);font-weight:800}
-@media(max-width:600px){.account-grid{grid-template-columns:1fr}.transfer-row{grid-template-columns:1fr}.transfer-arrow{transform:rotate(90deg)}}
+@media(max-width:600px){.account-grid{grid-template-columns:1fr}.transfer-row{grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:6px}.transfer-side-value{font-size:12px;padding:8px 5px}.transfer-arrow{transform:none}}
 .warn{background:var(--redbg);color:#a83248}
 .hidden{display:none!important}
 input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px;padding:3px;border:1px solid #ddd5f4;border-radius:8px;overflow:hidden;background:white;cursor:pointer}input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:0;border-radius:4px}
@@ -107,8 +111,11 @@ input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .pie-wrap{display:flex;justify-content:center;padding:8px 0}.pie{width:min(260px,72vw);aspect-ratio:1;border-radius:50%;margin:8px auto;position:relative}.pie-emoji{position:absolute;transform:translate(-50%,-50%);z-index:2;font-size:clamp(13px,3vw,19px);width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:#fff;box-shadow:0 2px 7px #30254b30;pointer-events:none}
 .pie-emoji img{width:19px;height:19px;object-fit:contain}.pie-hole{position:absolute;inset:27%;background:white;border-radius:50%;display:grid;place-items:center;text-align:center;padding:5px}
-.daily-chart{display:flex;gap:10px;align-items:end;height:180px;overflow:hidden;padding:8px 2px 0}
-.day-col{height:100%;min-width:42px;flex:1;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:5px;cursor:pointer}
+.daily-chart{display:flex;gap:10px;align-items:end;height:180px;overflow-x:auto;overflow-y:hidden;padding:8px 2px 0;scroll-behavior:smooth;touch-action:pan-x;overscroll-behavior-x:contain;cursor:grab;scrollbar-width:thin}
+.daily-chart.dragging{cursor:grabbing;scroll-behavior:auto}
+.daily-chart::-webkit-scrollbar{height:7px}
+.daily-chart::-webkit-scrollbar-thumb{background:#d8d2ea;border-radius:999px}
+.day-col{height:100%;min-width:42px;flex:0 0 42px;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:5px;cursor:pointer}
 .day-bar{width:28px;max-width:100%;min-height:2px;border-radius:6px 6px 2px 2px;overflow:hidden;display:flex;flex-direction:column-reverse;background:#eeeaf5}.day-segment{width:100%;min-height:0}
 .day-label{font-size:10px;color:var(--muted)}
 .emoji-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin-top:10px;padding:3px}
@@ -165,11 +172,30 @@ button:active{transform:scale(.98)}
 .color-tools{display:grid;grid-template-columns:1fr;gap:10px}
 .color-tool-row{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center}
 .color-tool-row label{font-size:13px;color:var(--muted);font-weight:650}
-.color-tool-row input[type=range]{width:100%;accent-color:var(--purple)}
+.color-tool-row input[type=range]{width:100%;height:24px;margin:0;padding:0;background:transparent;appearance:none;-webkit-appearance:none;cursor:pointer}
+.color-tool-row input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;border:1px solid #cfc9df;background:linear-gradient(90deg,#eeeaf5,#7057d9)}
+.color-tool-row input[type=range]::-moz-range-track{height:8px;border-radius:999px;border:1px solid #cfc9df;background:linear-gradient(90deg,#eeeaf5,#7057d9)}
+#catHue::-webkit-slider-runnable-track{background:linear-gradient(90deg,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)}
+#catHue::-moz-range-track{background:linear-gradient(90deg,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)}
+#catSat::-webkit-slider-runnable-track{background:linear-gradient(90deg,#d9d9d9,#7057d9)}
+#catSat::-moz-range-track{background:linear-gradient(90deg,#d9d9d9,#7057d9)}
+#catBright::-webkit-slider-runnable-track{background:linear-gradient(90deg,#111,#fff)}
+#catBright::-moz-range-track{background:linear-gradient(90deg,#111,#fff)}
+.color-tool-row input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border:2px solid #fff;border-radius:50%;background:var(--purple);box-shadow:0 0 0 1px #a69fba,0 2px 6px #0002}
+.color-tool-row input[type=range]::-moz-range-thumb{width:20px;height:20px;border:2px solid #fff;border-radius:50%;background:var(--purple);box-shadow:0 0 0 1px #a69fba,0 2px 6px #0002}
 .color-preview-large{width:58px;height:46px;border-radius:12px;border:1px solid var(--line);box-shadow:inset 0 0 0 1px #0000000a}
 .stat-toggle-row{display:flex;justify-content:center;margin:-2px 0 14px}
 .stat-toggle-control{user-select:none;-webkit-tap-highlight-color:transparent}
 @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* Final interaction overrides */
+.daily-chart{display:flex!important;gap:10px!important;align-items:end!important;height:180px!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-x!important;cursor:grab!important;user-select:none;-webkit-user-select:none}
+.daily-chart.dragging{cursor:grabbing!important}
+.day-col{height:100%!important;min-width:42px!important;flex:0 0 42px!important}
+.tx-toggle{width:100%;height:42px}
+.tx-toggle span{display:flex;align-items:center;justify-content:center;white-space:nowrap}
+.tx-toggle[data-mode="expense"] span:first-child,.tx-toggle[data-mode="income"] span:last-child,.tx-toggle[data-mode="card"] span:first-child,.tx-toggle[data-mode="cash"] span:last-child{color:var(--purple)}
+.tx-toggle[data-mode="income"] button,.tx-toggle[data-mode="cash"] button{left:calc(50% + 0px)}
 </style>
 </head>
 <body>
@@ -361,19 +387,28 @@ function renderDailyStats(){
  selectedDate.setHours(12,0,0,0);
  const dateKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
  const dateData=d=>{const key=dateKey(d),list=state.transactions.filter(t=>t.type===mode.daily&&t.date===key);const sum=list.reduce((a,t)=>a+Number(t.amount||0),0);const parts=state.categories.filter(c=>c.type===mode.daily).map(c=>({...c,sum:list.filter(t=>t.categoryId===c.id).reduce((a,t)=>a+Number(t.amount||0),0)})).filter(c=>c.sum>0);return {date:new Date(d),key,sum,parts}};
- const shiftDate=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+ const daysInMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();
  const renderWindow=()=>{
-  const visible=Array.from({length:7},(_,i)=>dateData(shiftDate(selectedDate,i-3))),max=Math.max(1,...visible.map(d=>d.sum));
+  const visible=Array.from({length:daysInMonth},(_,i)=>dateData(new Date(statsMonth.getFullYear(),statsMonth.getMonth(),i+1))),max=Math.max(1,...visible.map(d=>d.sum));
   chart.innerHTML=visible.map(d=>{const h=d.sum?Math.max(5,Math.sqrt(d.sum/max)*125):3,selected=d.key===dateKey(selectedDate);return `<div class="day-col ${selected?'selected':''}" data-date="${d.key}"><div class="day-bar" style="height:${h}px">${d.parts.map(p=>`<i class="day-segment" style="height:${p.sum/(d.sum||1)*100}%;background:${color(p.color)}"></i>`).join("")}</div><span class="day-label">${String(d.date.getDate()).padStart(2,"0")}.${String(d.date.getMonth()+1).padStart(2,"0")}</span></div>`}).join("");
   const d=dateData(selectedDate);out.innerHTML=`<div class="selected-day-summary"><div class="selected-day-date">${String(selectedDate.getDate()).padStart(2,"0")}.${String(selectedDate.getMonth()+1).padStart(2,"0")}.${selectedDate.getFullYear()}</div><div class="selected-day-amount">${money(d.sum)}</div></div>`;
   const label=mode.daily==="expense"?"Расходы":"Доходы";
   breakdown.innerHTML=d.parts.length?`<div class="day-break-title">${label} по категориям</div><div class="legend-table">${[...d.parts].sort((a,b)=>b.sum-a.sum).map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(d.sum||1)*100)}%</strong></div>`).join("")}</div>`:`<div class="muted">В этот день нет ${mode.daily==="expense"?"расходов":"доходов"}.</div>`;
-  const daysInMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()+1,0).getDate();if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;if(monthLabelEl)monthLabelEl.textContent=monthLabel(statsMonth);
+  if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;if(monthLabelEl)monthLabelEl.textContent=monthLabel(statsMonth);
+  const target=chart.querySelector(`[data-date="${dateKey(selectedDate)}"]`);if(target)target.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});
  };
- chart.onclick=e=>{const col=e.target.closest("[data-date]");if(col){window.__selectedStatsDate=col.dataset.date;renderDailyStats()}};
+ chart.onclick=e=>{if(moved){moved=false;return}const col=e.target.closest("[data-date]");if(col){window.__selectedStatsDate=col.dataset.date;renderDailyStats()}};
+ if(!chart.dataset.dragBound){
+  chart.dataset.dragBound="1";
+  let dragging=false,moved=false,startX=0,startScroll=0;
+  chart.addEventListener("pointerdown",e=>{dragging=true;moved=false;startX=e.clientX;startScroll=chart.scrollLeft;chart.classList.add("dragging");chart.setPointerCapture?.(e.pointerId)});
+  chart.addEventListener("pointermove",e=>{if(dragging){if(Math.abs(e.clientX-startX)>8)moved=true;chart.scrollLeft=startScroll-(e.clientX-startX)}});
+  const stop=()=>{dragging=false;chart.classList.remove("dragging")};
+  chart.addEventListener("pointerup",stop);chart.addEventListener("pointercancel",stop);chart.addEventListener("pointerleave",()=>{if(dragging)stop()});
+  chart.addEventListener("wheel",e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){chart.scrollLeft+=e.deltaY;e.preventDefault()}},{passive:false});
+ }
  renderWindow();
 }
-
 function attachStatsHandlers(){
  const prev=$("prevMonth"),next=$("nextMonth");
  if(prev)prev.onclick=()=>{statsMonth=new Date(statsMonth.getFullYear(),statsMonth.getMonth()-1,1);window.__selectedStatsDate=null;render()};
@@ -390,10 +425,10 @@ function render(){
  if(tab==="home"){
   const statsMarkup=buildStatsMarkup();
   $("main").innerHTML=`
-  <div class="card summary-card balance-card" id="balanceSummary" role="button" tabindex="0" aria-expanded="false">
+  <div class="card summary-card balance-card" id="balanceSummary" aria-expanded="true">
    <div class="label">Общий баланс</div>
    <div class="big ${balance()<0?"red":""}">${money(balance())}</div>
-   <div class="balance-details" id="balanceDetails"><div>
+   <div class="balance-details open" id="balanceDetails"><div>
     <div class="account-grid">
      <div class="account-card"><div class="account-name">💳 На карте</div><div class="account-value">${money(accountBalance("card"))}</div></div>
      <div class="account-card"><div class="account-name">💵 Наличными</div><div class="account-value">${money(accountBalance("cash"))}</div></div>
@@ -431,7 +466,7 @@ function render(){
  }
 
  document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{tab=b.dataset.goto;render()});
- const balanceSummary=$("balanceSummary"); if(balanceSummary){const toggle=()=>{const d=$("balanceDetails");if(d){d.classList.toggle("open");balanceSummary.setAttribute("aria-expanded",d.classList.contains("open"))}}; balanceSummary.onclick=toggle; balanceSummary.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle()}}}
+ const balanceSummary=$("balanceSummary"); if(balanceSummary){balanceSummary.setAttribute("aria-expanded","true")}
  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openTx(null,b.dataset.add));
  document.querySelectorAll("[data-transfer]").forEach(b=>b.onclick=()=>openTransfer());
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openTx(b.dataset.edit));
@@ -462,15 +497,9 @@ function openTx(id=null,type="expense"){
     <div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div>
     <form id="txForm">
      <div class="formgrid">
-      <div class="field"><label>Тип</label><select name="type" id="txType">
-       <option value="expense" ${chosenType==="expense"?"selected":""}>Расход</option>
-       <option value="income" ${chosenType==="income"?"selected":""}>Доход</option>
-      </select></div>
+      <div class="field"><label>Тип</label><div class="stat-toggle-control tx-toggle" id="txTypeToggle" data-mode="${chosenType}"><span data-value="expense">Расход</span><span data-value="income">Доход</span><button type="button" aria-hidden="true"></button></div><input type="hidden" name="type" id="txType" value="${chosenType}"></div>
       <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
-      <div class="field"><label>Где находятся деньги</label><select name="account" id="txAccount">
-       <option value="card" ${chosenAccount==="card"?"selected":""}>💳 Карта</option>
-       <option value="cash" ${chosenAccount==="cash"?"selected":""}>💵 Наличные</option>
-      </select></div>
+      <div class="field"><label>Где находятся деньги</label><div class="stat-toggle-control tx-toggle" id="txAccountToggle" data-mode="${chosenAccount}"><span data-value="card">💳 Карта</span><span data-value="cash">💵 Наличные</span><button type="button" aria-hidden="true"></button></div><input type="hidden" name="account" id="txAccount" value="${chosenAccount}"></div>
       <div class="field"><label>Категория</label><select name="categoryId" id="txCat">
        ${cats.map(c=>`<option value="${esc(c.id)}" ${old?.categoryId===c.id?"selected":""}>${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("")}
       </select></div>
@@ -482,9 +511,9 @@ function openTx(id=null,type="expense"){
    </div>
   </div>`;
  $("close").onclick=closeModal;
- $("txType").onchange=()=>{
-   $("txCat").innerHTML=state.categories.filter(c=>c.type===$("txType").value).map(c=>`<option value="${esc(c.id)}">${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("");
- };
+ const setTxType=v=>{ $("txType").value=v; $("txTypeToggle").dataset.mode=v; $("txCat").innerHTML=state.categories.filter(c=>c.type===v).map(c=>`<option value="${esc(c.id)}">${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join(""); };
+ document.querySelectorAll("#txTypeToggle span").forEach(b=>b.onclick=()=>setTxType(b.dataset.value));
+ document.querySelectorAll("#txAccountToggle span").forEach(b=>b.onclick=()=>{ $("txAccount").value=b.dataset.value; $("txAccountToggle").dataset.mode=b.dataset.value; });
  $("txForm").onsubmit=e=>{
    e.preventDefault();
    const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
@@ -513,16 +542,12 @@ function openTransfer(id=null){
     <div class="between row"><h2>${old?"Изменить":"Перевести средства"}</h2><button class="secondary" id="close">Закрыть</button></div>
     <form id="transferForm">
      <div class="transfer-row">
-      <div class="field"><label>Откуда</label><select name="fromAccount">
-       <option value="card" ${old?.fromAccount!=="cash"?"selected":""}>💳 Карта</option>
-       <option value="cash" ${old?.fromAccount==="cash"?"selected":""}>💵 Наличные</option>
-      </select></div>
+      <div class="transfer-side"><label>Откуда</label><div class="transfer-side-value ${old?.fromAccount==="cash"?"cash-side":"card-side"}" id="fromAccountLabel">${old?.fromAccount==="cash"?"💵 Наличные":"💳 Карта"}</div></div>
       <button type="button" class="transfer-swap" id="swapTransfer" title="Поменять местами">↔</button>
-      <div class="field"><label>Куда</label><select name="toAccount">
-       <option value="cash" ${old?.toAccount!=="card"?"selected":""}>💵 Наличные</option>
-       <option value="card" ${old?.toAccount==="card"?"selected":""}>💳 Карта</option>
-      </select></div>
+      <div class="transfer-side"><label>Куда</label><div class="transfer-side-value ${old?.toAccount==="card"?"card-side":"cash-side"}" id="toAccountLabel">${old?.toAccount==="card"?"💳 Карта":"💵 Наличные"}</div></div>
      </div>
+     <input type="hidden" name="fromAccount" value="${old?.fromAccount||"card"}">
+     <input type="hidden" name="toAccount" value="${old?.toAccount||"cash"}">
      <div class="formgrid">
       <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
       <div class="field"><label>Дата</label><input name="date" type="date" required value="${esc(old?.date||today())}"></div>
@@ -534,7 +559,7 @@ function openTransfer(id=null){
    </div>
   </div>`;
  $("close").onclick=closeModal;
- $("swapTransfer").onclick=()=>{const f=$("transferForm");const from=f.elements.fromAccount.value;f.elements.fromAccount.value=f.elements.toAccount.value;f.elements.toAccount.value=from};
+ $("swapTransfer").onclick=()=>{const f=$("transferForm");const from=f.elements.fromAccount.value;f.elements.fromAccount.value=f.elements.toAccount.value;f.elements.toAccount.value=from;$("fromAccountLabel").textContent=f.elements.fromAccount.value==="card"?"💳 Карта":"💵 Наличные";$("toAccountLabel").textContent=f.elements.toAccount.value==="card"?"💳 Карта":"💵 Наличные";$("fromAccountLabel").className="transfer-side-value "+(f.elements.fromAccount.value==="card"?"card-side":"cash-side");$("toAccountLabel").className="transfer-side-value "+(f.elements.toAccount.value==="card"?"card-side":"cash-side")};
  $("transferForm").onsubmit=e=>{
    e.preventDefault();
    const f=new FormData(e.currentTarget),amount=Number(f.get("amount"));
@@ -623,7 +648,7 @@ function openCat(id=null){
  $("catHue").value=Math.round(hsv[0]);
  $("catSat").value=100;
  $("catBright").value=100;
- const syncColor=()=>{const v=hsvToHex(Number($("catHue").value),Number($("catSat").value)/100,Number($("catBright").value)/100);$("catColor").value=v;$("catColorPreview").style.background=v};
+ const syncColor=()=>{const v=hsvToHex(Number($("catHue").value),Number($("catSat").value)/100,Number($("catBright").value)/100);$("catColor").value=v;$("catColorPreview").style.background=v;$("catColorPreview").style.boxShadow=`inset 0 0 0 999px ${v}22, inset 0 0 0 1px #0000000a`};
  [$("catHue"),$("catSat"),$("catBright")].forEach(x=>x.oninput=syncColor); syncColor();
  $("catForm").onsubmit=e=>{
   e.preventDefault();
