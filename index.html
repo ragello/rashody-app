@@ -205,8 +205,12 @@ button:active{transform:scale(.98)}
 .transfer-row{align-items:end!important;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr)!important;gap:14px!important}
 .transfer-side{align-self:end!important}
 .transfer-side-value{height:54px;min-height:54px;box-sizing:border-box}
-.transfer-swap{align-self:end!important;justify-self:center!important;margin:0 auto 1px!important;width:52px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Arial,sans-serif;font-size:25px;padding:0 0 2px!important;transform:none!important}
-@media(max-width:600px){.transfer-row{grid-template-columns:minmax(0,1fr) 50px minmax(0,1fr)!important;gap:7px!important}.transfer-side-value{height:50px;min-height:50px;padding:8px 4px}.transfer-swap{width:46px;height:50px;font-size:22px}}
+.transfer-swap{align-self:end!important;justify-self:center!important;margin:0 auto 1px!important;width:52px;height:52px;min-width:52px;border-radius:50%;display:grid;place-items:center;line-height:1;font-family:Arial,sans-serif;font-size:25px;font-weight:500;padding:0!important;transform:none!important;position:relative}
+.transfer-swap::first-letter{position:relative;top:-1px}
+.tx-toggle button{top:6px!important;height:30px!important}
+.tx-toggle{box-sizing:border-box;align-items:center}
+.tx-toggle span{height:100%;align-items:center!important;line-height:1}
+@media(max-width:600px){.transfer-row{grid-template-columns:minmax(0,1fr) 50px minmax(0,1fr)!important;gap:7px!important}.transfer-side-value{height:50px;min-height:50px;padding:8px 4px}.transfer-swap{width:46px;height:46px;min-width:46px;font-size:22px}}
 .modal-heading-row{position:relative;display:flex;align-items:center;min-height:40px;padding-right:46px;margin-bottom:12px}
 .modal-heading-row h2{margin:0}
 .modal-close{position:absolute;top:0;right:0;width:36px;height:36px;padding:0;border:1px solid #e5def3;border-radius:12px;background:#f5f2fc;color:#62558a;display:grid;place-items:center;font-size:23px;font-weight:500;line-height:1;box-shadow:none}
@@ -423,29 +427,42 @@ function renderDailyStats(){
  };
  if(!chart.dataset.dragBound){
   chart.dataset.dragBound="1";
-  let pointerId=null,startX=0,startY=0,startScroll=0,lastX=0,lastTime=0,velocity=0,horizontalDrag=false,axisChosen=false;
+  let pointerId=null,startX=0,startY=0,startScroll=0,lastX=0,lastTime=0,velocity=0,horizontalDrag=false,axisChosen=false,inertiaFrame=0;
   chart.addEventListener("pointerdown",e=>{
    if(e.pointerType==="mouse"&&e.button!==0)return;
+   if(inertiaFrame){cancelAnimationFrame(inertiaFrame);inertiaFrame=0;}
    pointerId=e.pointerId;startX=lastX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;lastTime=performance.now();velocity=0;horizontalDrag=false;axisChosen=false;
-   try{chart.setPointerCapture(e.pointerId)}catch(_){}
   });
   chart.addEventListener("pointermove",e=>{
    if(pointerId!==e.pointerId)return;
    const dx=e.clientX-startX,dy=e.clientY-startY;
    if(!axisChosen){
-    if(Math.abs(dx)<5&&Math.abs(dy)<5)return;
+    if(Math.abs(dx)<7&&Math.abs(dy)<7)return;
     axisChosen=true;
-    if(Math.abs(dy)>Math.abs(dx)){pointerId=null;try{chart.releasePointerCapture(e.pointerId)}catch(_){}return;}
+    if(Math.abs(dy)>Math.abs(dx)){pointerId=null;return;}
     horizontalDrag=true;chart.classList.add("dragging");suppressDayClick=true;
+    try{chart.setPointerCapture(e.pointerId)}catch(_){}
    }
    if(!horizontalDrag)return;
-   const now=performance.now(),dt=Math.max(1,now-lastTime);velocity=(e.clientX-lastX)/dt;lastX=e.clientX;lastTime=now;
+   const now=performance.now(),dt=Math.max(1,now-lastTime),instant=(e.clientX-lastX)/dt;
+   velocity=velocity*.65+instant*.35;lastX=e.clientX;lastTime=now;
    chart.scrollLeft=startScroll-dx;e.preventDefault();
   },{passive:false});
   const finishDrag=e=>{
    if(pointerId===null||(e&&e.pointerId!==pointerId))return;
    const wasDragging=horizontalDrag;pointerId=null;horizontalDrag=false;chart.classList.remove("dragging");
-   if(wasDragging){const glide=Math.max(-520,Math.min(520,-velocity*260));if(Math.abs(glide)>24)chart.scrollTo({left:Math.max(0,Math.min(chart.scrollWidth-chart.clientWidth,chart.scrollLeft+glide)),behavior:"smooth"});setTimeout(()=>{suppressDayClick=false;},120);}
+   if(wasDragging){
+    let speed=Math.max(-2.2,Math.min(2.2,-velocity*16));
+    const coast=()=>{
+     if(Math.abs(speed)<.08){inertiaFrame=0;return;}
+     const next=chart.scrollLeft+speed*16;
+     chart.scrollLeft=Math.max(0,Math.min(chart.scrollWidth-chart.clientWidth,next));
+     if(chart.scrollLeft===0||chart.scrollLeft===chart.scrollWidth-chart.clientWidth){inertiaFrame=0;return;}
+     speed*=.94;inertiaFrame=requestAnimationFrame(coast);
+    };
+    if(Math.abs(speed)>.18)inertiaFrame=requestAnimationFrame(coast);
+    setTimeout(()=>{suppressDayClick=false;},180);
+   }
   };
   chart.addEventListener("pointerup",finishDrag);chart.addEventListener("pointercancel",finishDrag);chart.addEventListener("lostpointercapture",finishDrag);
   chart.addEventListener("wheel",e=>{const delta=Math.abs(e.deltaY)>Math.abs(e.deltaX)?e.deltaY:e.deltaX;if(delta){chart.scrollLeft+=delta;e.preventDefault();}},{passive:false});
