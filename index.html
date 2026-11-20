@@ -38,10 +38,7 @@ h3{font-size:16px;margin:12px 0}
 .summary-card{position:relative;overflow:hidden}
 .summary-card.balance-card{background:linear-gradient(135deg,#7057d9,#9278ed);color:white;border:0;box-shadow:0 9px 24px #7057d933}
 .balance-card .label,.balance-card .big{color:white}
-.account-card .account-value {
-    color: var(--ink) !important;
-}
- .balance-card:after{content:"";position:absolute;width:115px;height:115px;border-radius:50%;background:#ffffff18;right:-35px;top:-40px}
+.balance-card:after{content:"";position:absolute;width:115px;height:115px;border-radius:50%;background:#ffffff18;right:-35px;top:-40px}
 .income-card{border-top:4px solid #36b98d}
 .expense-card{border-top:4px solid #ed7186}
 .label{font-size:13px;color:var(--muted)}
@@ -153,7 +150,7 @@ input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px
  .transfer-card{margin-top:16px;padding:15px 16px;background:#fff;border:1px solid var(--line);border-radius:16px;transition:transform .18s ease,box-shadow .18s ease}
 .transfer-card:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(30,30,60,.07)}
 .transfer-card .secondary{background:var(--purple2);color:var(--purple);border-color:transparent}
-.balance-card{cursor: default}
+.balance-card{cursor:pointer}
 .balance-details{display:block;opacity:1;margin-top:12px;overflow:visible!important;height:auto!important;max-height:none!important}
 .balance-details>div{overflow:visible;min-height:auto}
 .balance-details.open{display:block;opacity:1;margin-top:12px;height:auto!important;max-height:none!important}
@@ -201,6 +198,22 @@ button:active{transform:scale(.98)}
 .tx-toggle span{display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .tx-toggle[data-mode="expense"] span:first-child,.tx-toggle[data-mode="income"] span:last-child,.tx-toggle[data-mode="card"] span:first-child,.tx-toggle[data-mode="cash"] span:last-child{color:var(--purple)}
 .tx-toggle[data-mode="income"] button,.tx-toggle[data-mode="cash"] button{left:calc(50% + 0px)}
+
+/* Interaction and modal polish */
+.daily-chart{touch-action:pan-y!important;overscroll-behavior-x:contain;scroll-behavior:auto!important;-webkit-overflow-scrolling:touch;cursor:grab!important}
+.daily-chart.dragging{cursor:grabbing!important}
+.transfer-row{align-items:end!important;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr)!important;gap:14px!important}
+.transfer-side{align-self:end!important}
+.transfer-side-value{height:54px;min-height:54px;box-sizing:border-box}
+.transfer-swap{align-self:end!important;justify-self:center!important;margin:0 auto 1px!important;width:52px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1;font-family:Arial,sans-serif;font-size:25px;padding:0 0 2px!important;transform:none!important}
+@media(max-width:600px){.transfer-row{grid-template-columns:minmax(0,1fr) 50px minmax(0,1fr)!important;gap:7px!important}.transfer-side-value{height:50px;min-height:50px;padding:8px 4px}.transfer-swap{width:46px;height:50px;font-size:22px}}
+.modal-heading-row{position:relative;display:flex;align-items:center;min-height:40px;padding-right:46px;margin-bottom:12px}
+.modal-heading-row h2{margin:0}
+.modal-close{position:absolute;top:0;right:0;width:36px;height:36px;padding:0;border:1px solid #e5def3;border-radius:12px;background:#f5f2fc;color:#62558a;display:grid;place-items:center;font-size:23px;font-weight:500;line-height:1;box-shadow:none}
+.modal-close:active{transform:scale(.94)}
+.emoji-modal-head{position:relative;padding-right:44px}
+.emoji-modal-head .modal-close{top:0;right:0;background:#ffffff18;color:#fff;border-color:#ffffff35}
+
 </style>
 </head>
 <body>
@@ -402,24 +415,40 @@ function renderDailyStats(){
   if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;if(monthLabelEl)monthLabelEl.textContent=monthLabel(statsMonth);
   const target=chart.querySelector(`[data-date="${dateKey(selectedDate)}"]`);if(target){const desired=target.offsetLeft-(chart.clientWidth-target.offsetWidth)/2;chart.scrollLeft=Math.max(0,Math.min(desired,chart.scrollWidth-chart.clientWidth));}
  };
- chart.onclick=e=>{if(moved){moved=false;return}const col=e.target.closest("[data-date]");if(col){window.__selectedStatsDate=col.dataset.date;renderDailyStats()}};
+ let suppressDayClick=false;
+ chart.onclick=e=>{
+  if(suppressDayClick){suppressDayClick=false;return;}
+  const col=e.target.closest("[data-date]");
+  if(col){window.__selectedStatsDate=col.dataset.date;renderDailyStats();}
+ };
  if(!chart.dataset.dragBound){
   chart.dataset.dragBound="1";
-  let pointerDown=false,dragging=false,moved=false,startX=0,startY=0,startScroll=0;
-  chart.addEventListener("pointerdown",e=>{pointerDown=true;dragging=false;moved=false;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft});
+  let pointerId=null,startX=0,startY=0,startScroll=0,lastX=0,lastTime=0,velocity=0,horizontalDrag=false,axisChosen=false;
+  chart.addEventListener("pointerdown",e=>{
+   if(e.pointerType==="mouse"&&e.button!==0)return;
+   pointerId=e.pointerId;startX=lastX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;lastTime=performance.now();velocity=0;horizontalDrag=false;axisChosen=false;
+   try{chart.setPointerCapture(e.pointerId)}catch(_){}
+  });
   chart.addEventListener("pointermove",e=>{
-   if(!pointerDown)return;
+   if(pointerId!==e.pointerId)return;
    const dx=e.clientX-startX,dy=e.clientY-startY;
-   if(!dragging){
-    if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
-    if(Math.abs(dy)>Math.abs(dx)){pointerDown=false;return;}
-    dragging=true;moved=true;chart.classList.add("dragging");chart.setPointerCapture?.(e.pointerId);e.preventDefault();
+   if(!axisChosen){
+    if(Math.abs(dx)<5&&Math.abs(dy)<5)return;
+    axisChosen=true;
+    if(Math.abs(dy)>Math.abs(dx)){pointerId=null;try{chart.releasePointerCapture(e.pointerId)}catch(_){}return;}
+    horizontalDrag=true;chart.classList.add("dragging");suppressDayClick=true;
    }
-   if(dragging){chart.scrollLeft=startScroll-dx;e.preventDefault();}
+   if(!horizontalDrag)return;
+   const now=performance.now(),dt=Math.max(1,now-lastTime);velocity=(e.clientX-lastX)/dt;lastX=e.clientX;lastTime=now;
+   chart.scrollLeft=startScroll-dx;e.preventDefault();
   },{passive:false});
-  const stop=()=>{pointerDown=false;dragging=false;chart.classList.remove("dragging")};
-  chart.addEventListener("pointerup",stop);chart.addEventListener("pointercancel",stop);chart.addEventListener("lostpointercapture",stop);
-  chart.addEventListener("wheel",e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){chart.scrollLeft+=e.deltaY;e.preventDefault()}},{passive:false});
+  const finishDrag=e=>{
+   if(pointerId===null||(e&&e.pointerId!==pointerId))return;
+   const wasDragging=horizontalDrag;pointerId=null;horizontalDrag=false;chart.classList.remove("dragging");
+   if(wasDragging){const glide=Math.max(-520,Math.min(520,-velocity*260));if(Math.abs(glide)>24)chart.scrollTo({left:Math.max(0,Math.min(chart.scrollWidth-chart.clientWidth,chart.scrollLeft+glide)),behavior:"smooth"});setTimeout(()=>{suppressDayClick=false;},120);}
+  };
+  chart.addEventListener("pointerup",finishDrag);chart.addEventListener("pointercancel",finishDrag);chart.addEventListener("lostpointercapture",finishDrag);
+  chart.addEventListener("wheel",e=>{const delta=Math.abs(e.deltaY)>Math.abs(e.deltaX)?e.deltaY:e.deltaX;if(delta){chart.scrollLeft+=delta;e.preventDefault();}},{passive:false});
  }
  renderWindow();
 }
@@ -510,12 +539,12 @@ function openTx(id=null,type="expense"){
  $("modal").innerHTML=`
   <div class="modal-backdrop">
    <div class="card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
-    <div class="between row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button class="secondary" id="close">Закрыть</button></div>
+    <div class="modal-heading-row"><h2>${old?"Изменить":"Добавить"} операцию</h2><button type="button" class="modal-close" id="close" aria-label="Закрыть">×</button></div>
     <form id="txForm">
      <div class="formgrid">
-      <div class="field"><label>Тип</label><div class="stat-toggle-control tx-toggle" id="txTypeToggle" data-mode="${chosenType}"><span data-value="expense">Расход</span><span data-value="income">Доход</span><button type="button" aria-hidden="true"></button></div><input type="hidden" name="type" id="txType" value="${chosenType}"></div>
+      <div class="field full"><label>Тип</label><div class="stat-toggle-control tx-toggle" id="txTypeToggle" data-mode="${chosenType}"><span data-value="expense">Расход</span><span data-value="income">Доход</span><button type="button" aria-hidden="true"></button></div><input type="hidden" name="type" id="txType" value="${chosenType}"></div>
+      <div class="field full"><label>Где находятся деньги</label><div class="stat-toggle-control tx-toggle" id="txAccountToggle" data-mode="${chosenAccount}"><span data-value="card">💳 Карта</span><span data-value="cash">💵 Наличные</span><button type="button" aria-hidden="true"></button></div><input type="hidden" name="account" id="txAccount" value="${chosenAccount}"></div>
       <div class="field"><label>Сумма (BYN)</label><input name="amount" type="number" min=".01" step=".01" required value="${old?esc(old.amount):""}" inputmode="decimal"></div>
-      <div class="field"><label>Где находятся деньги</label><div class="stat-toggle-control tx-toggle" id="txAccountToggle" data-mode="${chosenAccount}"><span data-value="card">💳 Карта</span><span data-value="cash">💵 Наличные</span><button type="button" aria-hidden="true"></button></div><input type="hidden" name="account" id="txAccount" value="${chosenAccount}"></div>
       <div class="field"><label>Категория</label><select name="categoryId" id="txCat">
        ${cats.map(c=>`<option value="${esc(c.id)}" ${old?.categoryId===c.id?"selected":""}>${iconMarkup(c.emoji)} ${esc(c.name)}</option>`).join("")}
       </select></div>
@@ -555,7 +584,7 @@ function openTransfer(id=null){
  $("modal").innerHTML=`
   <div class="modal-backdrop">
    <div class="card transfer-card" style="width:min(560px,100%);max-height:90vh;overflow:auto">
-    <div class="between row"><h2>${old?"Изменить":"Перевести средства"}</h2><button class="secondary" id="close">Закрыть</button></div>
+    <div class="modal-heading-row"><h2>${old?"Изменить":"Перевести средства"}</h2><button type="button" class="modal-close" id="close" aria-label="Закрыть">×</button></div>
     <form id="transferForm">
      <div class="transfer-row">
       <div class="transfer-side"><label>Откуда</label><div class="transfer-side-value ${old?.fromAccount==="cash"?"cash-side":"card-side"}" id="fromAccountLabel">${old?.fromAccount==="cash"?"💵 Наличные":"💳 Карта"}</div></div>
@@ -621,7 +650,7 @@ function openCat(id=null){
  $("modal").innerHTML=`
  <div class="modal-backdrop">
   <div class="card" style="width:min(540px,100%);max-height:92vh;overflow:auto">
-   <div class="between row"><h2>${old?"Изменить":"Новая"} категория</h2><button class="secondary" id="close">Закрыть</button></div>
+   <div class="modal-heading-row"><h2>${old?"Изменить":"Новая"} категория</h2><button type="button" class="modal-close" id="close" aria-label="Закрыть">×</button></div>
    <form id="catForm">
     <div class="field"><label>Название</label><input name="name" required maxlength="45" value="${esc(old?.name||"")}"></div>
     <div class="field"><label>Тип</label><select name="type" ${old?"disabled":""}>
@@ -652,7 +681,7 @@ function openCat(id=null){
  $("close").onclick=closeModal;
  $("toggleEmojiPicker").onclick=()=>{
   const modal=document.createElement("div");modal.className="emoji-modal";
-  modal.innerHTML=`<div class="emoji-modal-head"><strong>Выбери значок</strong><button type="button" class="secondary" id="emojiCancel">Закрыть</button></div><div class="emoji-modal-list" id="emojiList"><div class="keyboard-emoji"><label for="customEmoji">Можно вставить эмодзи с клавиатуры</label><input id="customEmoji" type="text" maxlength="8" placeholder="Вставь выбранный эмодзи" value=""></div>${Object.entries(emojiGroups).map(([group,emojis])=>`<div class="emoji-group">${group}</div><div class="emoji-grid">${emojis.map(em=>`<button type="button" class="emoji-option ${em===($("emojiValue").value) ? "selected":""}" data-emoji="${em}">${iconMarkup(em)}</button>`).join("")}</div>`).join("")}</div><div class="emoji-modal-footer"><button type="button" id="emojiChoose">Выбрать</button></div>`;
+  modal.innerHTML=`<div class="emoji-modal-head"><strong>Выбери значок</strong><button type="button" class="modal-close" id="emojiCancel" aria-label="Закрыть">×</button></div><div class="emoji-modal-list" id="emojiList"><div class="keyboard-emoji"><label for="customEmoji">Можно вставить эмодзи с клавиатуры</label><input id="customEmoji" type="text" maxlength="8" placeholder="Вставь выбранный эмодзи" value=""></div>${Object.entries(emojiGroups).map(([group,emojis])=>`<div class="emoji-group">${group}</div><div class="emoji-grid">${emojis.map(em=>`<button type="button" class="emoji-option ${em===($("emojiValue").value) ? "selected":""}" data-emoji="${em}">${iconMarkup(em)}</button>`).join("")}</div>`).join("")}</div><div class="emoji-modal-footer"><button type="button" id="emojiChoose">Выбрать</button></div>`;
   document.body.appendChild(modal);let pending=$("emojiValue").value;
   modal.querySelector("#customEmoji").addEventListener("input",e=>{const v=e.target.value.trim();if(v){pending=v;modal.querySelectorAll(".emoji-option").forEach(x=>x.classList.remove("selected"));}});
   modal.querySelectorAll("[data-emoji]").forEach(b=>b.onclick=()=>{pending=b.dataset.emoji;modal.querySelectorAll(".emoji-option").forEach(x=>x.classList.toggle("selected",x===b))});
