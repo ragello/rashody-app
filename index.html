@@ -84,18 +84,18 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 @media(max-width:600px){.auth{margin:5vh 12px 20px}}
 
 .notice{background:var(--purple2);padding:12px;border-radius:12px;font-size:13px;margin-top:12px}
-.account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
 .account-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:var(--shadow)}
 .account-card .account-name{font-size:13px;color:var(--muted)}
 .account-card .account-value{font-size:22px;font-weight:850;margin-top:5px;overflow-wrap:anywhere}
 .transfer-card{border:1px solid #ddd5f4;background:#faf8ff}
-.transfer-row{display:grid;grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr);gap:10px;align-items:center}
-.transfer-side{min-width:0}
-.transfer-side-value{display:flex;align-items:center;justify-content:center;min-height:43px;padding:9px 10px;border:1px solid var(--line);border-radius:13px;background:#fff;font-weight:800;text-align:center}
-.transfer-side-value.card-side{color:#5742ad}
-.transfer-side-value.cash-side{color:#16866a}
-.transfer-arrow{text-align:center;font-size:20px;color:var(--purple);font-weight:800}
-@media(max-width:600px){.account-grid{grid-template-columns:1fr}.transfer-row{grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:6px}.transfer-side-value{font-size:12px;padding:8px 5px}.transfer-arrow{transform:none}}
+.transfer-row{display:grid;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr);gap:18px;align-items:stretch;padding:6px 0 10px}
+.transfer-side{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.transfer-side>label{text-align:center;margin-bottom:8px}
+.transfer-side-value{min-height:54px;padding:12px 14px;border-radius:16px;display:flex;align-items:center;justify-content:center;line-height:1.25}
+.transfer-arrow{width:52px;height:52px;margin:auto;display:grid;place-items:center;border-radius:50%;background:var(--purple2);border:1px solid #d9d0f4;font-size:24px;line-height:1;color:var(--purple);font-weight:850;box-shadow:0 3px 10px #7057d91c;cursor:pointer}
+.transfer-side-value{border:1px solid var(--line);background:#fff;font-weight:800;text-align:center}.transfer-side-value.card-side{color:#5742ad}.transfer-side-value.cash-side{color:#16866a}
+@media(max-width:600px){.account-grid{grid-template-columns:1fr}.transfer-row{grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);gap:8px;padding-top:4px}.transfer-side-value{font-size:12px;padding:10px 6px;min-height:50px}.transfer-arrow{width:46px;height:46px;font-size:21px}}
 .warn{background:var(--redbg);color:#a83248}
 .hidden{display:none!important}
 input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px;padding:3px;border:1px solid #ddd5f4;border-radius:8px;overflow:hidden;background:white;cursor:pointer}input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:0;border-radius:4px}
@@ -111,7 +111,7 @@ input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px
 .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .pie-wrap{display:flex;justify-content:center;padding:8px 0}.pie{width:min(260px,72vw);aspect-ratio:1;border-radius:50%;margin:8px auto;position:relative}.pie-emoji{position:absolute;transform:translate(-50%,-50%);z-index:2;font-size:clamp(13px,3vw,19px);width:27px;height:27px;display:grid;place-items:center;border-radius:50%;background:#fff;box-shadow:0 2px 7px #30254b30;pointer-events:none}
 .pie-emoji img{width:19px;height:19px;object-fit:contain}.pie-hole{position:absolute;inset:27%;background:white;border-radius:50%;display:grid;place-items:center;text-align:center;padding:5px}
-.daily-chart{display:flex;gap:10px;align-items:end;height:180px;overflow-x:auto;overflow-y:hidden;padding:8px 2px 0;scroll-behavior:smooth;touch-action:pan-x;overscroll-behavior-x:contain;cursor:grab;scrollbar-width:thin}
+.daily-chart{display:flex;gap:10px;align-items:end;height:180px;overflow-x:auto;overflow-y:hidden;padding:8px 2px 0;scroll-behavior:smooth;touch-action:pan-y;overscroll-behavior-x:contain;cursor:grab;scrollbar-width:thin}
 .daily-chart.dragging{cursor:grabbing;scroll-behavior:auto}
 .daily-chart::-webkit-scrollbar{height:7px}
 .daily-chart::-webkit-scrollbar-thumb{background:#d8d2ea;border-radius:999px}
@@ -151,9 +151,9 @@ input[type=color]{appearance:none;-webkit-appearance:none;width:58px;height:46px
 .transfer-card:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(30,30,60,.07)}
 .transfer-card .secondary{background:var(--purple2);color:var(--purple);border-color:transparent}
 .balance-card{cursor:pointer}
-.balance-details{display:grid;grid-template-rows:1fr;opacity:1;margin-top:12px;transition:none}
-.balance-details>div{overflow:hidden}
-.balance-details.open{grid-template-rows:1fr;opacity:1;margin-top:12px}
+.balance-details{display:block;opacity:1;margin-top:12px;overflow:visible!important;height:auto!important;max-height:none!important}
+.balance-details>div{overflow:visible;min-height:auto}
+.balance-details.open{display:block;opacity:1;margin-top:12px;height:auto!important;max-height:none!important}
 .stat-toggle-control{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:220px;height:38px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--purple2);cursor:pointer;overflow:hidden}
 .stat-toggle-control span{position:relative;z-index:2;text-align:center;font-size:13px;font-weight:700;color:var(--muted);transition:color .2s ease}
 .stat-toggle-control[data-mode="expense"] span:first-child,.stat-toggle-control[data-mode="income"] span:last-child{color:var(--purple)}
@@ -166,17 +166,17 @@ button:active{transform:scale(.98)}
 .summary-card{transition:box-shadow .18s ease,transform .18s ease}
 .balance-card:hover{transform:none}
 .balance-card{will-change:auto}
-.balance-details{contain:layout;overflow:hidden}
-.balance-details>div{min-height:0}
+.balance-details{contain:layout;overflow:visible!important}
+.balance-details>div{min-height:auto}
 .modal-backdrop{position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:1000}
 .modal-backdrop>.card{animation:none}
-.transfer-swap{width:42px;height:42px;padding:0;border-radius:50%;background:var(--purple2);color:var(--purple);font-size:20px;display:grid;place-items:center;align-self:center}
+.transfer-swap{width:52px;height:52px;padding:0;margin:auto;border-radius:50%;background:var(--purple2);color:var(--purple);font-size:24px;line-height:1;display:grid;place-items:center;align-self:center;justify-self:center;border:1px solid #d9d0f4;box-shadow:0 3px 10px #7057d91c}
 .color-tools{display:grid;grid-template-columns:1fr;gap:10px}
-.color-tool-row{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center}
-.color-tool-row label{font-size:13px;color:var(--muted);font-weight:650}
-.color-tool-row input[type=range]{width:100%;height:24px;margin:0;padding:0;background:transparent;appearance:none;-webkit-appearance:none;cursor:pointer}
-.color-tool-row input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;border:1px solid #cfc9df;background:linear-gradient(90deg,#eeeaf5,#7057d9)}
-.color-tool-row input[type=range]::-moz-range-track{height:8px;border-radius:999px;border:1px solid #cfc9df;background:linear-gradient(90deg,#eeeaf5,#7057d9)}
+.color-tool-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;align-items:center;min-width:0}
+.color-tool-row label{font-size:13px;color:var(--muted);font-weight:650;white-space:nowrap;overflow:visible}
+.color-tool-row input[type=range]{width:100%;height:28px;margin:0;padding:0;background:transparent;appearance:none;-webkit-appearance:none;cursor:pointer;min-width:0}
+.color-tool-row input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;border:0;background:linear-gradient(90deg,#eeeaf5,#7057d9);box-shadow:inset 0 0 0 1px #cfc9df}
+.color-tool-row input[type=range]::-moz-range-track{height:8px;border-radius:999px;border:0;background:linear-gradient(90deg,#eeeaf5,#7057d9);box-shadow:inset 0 0 0 1px #cfc9df}
 #catHue::-webkit-slider-runnable-track{background:linear-gradient(90deg,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)}
 #catHue::-moz-range-track{background:linear-gradient(90deg,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)}
 #catSat::-webkit-slider-runnable-track{background:linear-gradient(90deg,#d9d9d9,#7057d9)}
@@ -191,7 +191,7 @@ button:active{transform:scale(.98)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* Final interaction overrides */
-.daily-chart{display:flex!important;gap:10px!important;align-items:end!important;height:180px!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-x!important;cursor:grab!important;user-select:none;-webkit-user-select:none}
+.daily-chart{display:flex!important;gap:10px!important;align-items:end!important;height:180px!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-y!important;cursor:grab!important;user-select:none;-webkit-user-select:none}
 .daily-chart.dragging{cursor:grabbing!important}
 .day-col{height:100%!important;min-width:42px!important;flex:0 0 42px!important}
 .tx-toggle{width:100%;height:42px}
@@ -397,16 +397,25 @@ function renderDailyStats(){
   const label=mode.daily==="expense"?"Расходы":"Доходы";
   breakdown.innerHTML=d.parts.length?`<div class="day-break-title">${label} по категориям</div><div class="legend-table">${[...d.parts].sort((a,b)=>b.sum-a.sum).map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(d.sum||1)*100)}%</strong></div>`).join("")}</div>`:`<div class="muted">В этот день нет ${mode.daily==="expense"?"расходов":"доходов"}.</div>`;
   if(thumb)thumb.style.left=`${((selectedDate.getDate()-1)/(daysInMonth-1||1))*100}%`;if(monthLabelEl)monthLabelEl.textContent=monthLabel(statsMonth);
-  const target=chart.querySelector(`[data-date="${dateKey(selectedDate)}"]`);if(target)target.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});
+  const target=chart.querySelector(`[data-date="${dateKey(selectedDate)}"]`);if(target){const desired=target.offsetLeft-(chart.clientWidth-target.offsetWidth)/2;chart.scrollLeft=Math.max(0,Math.min(desired,chart.scrollWidth-chart.clientWidth));}
  };
  chart.onclick=e=>{if(moved){moved=false;return}const col=e.target.closest("[data-date]");if(col){window.__selectedStatsDate=col.dataset.date;renderDailyStats()}};
  if(!chart.dataset.dragBound){
   chart.dataset.dragBound="1";
-  let dragging=false,moved=false,startX=0,startScroll=0;
-  chart.addEventListener("pointerdown",e=>{dragging=true;moved=false;startX=e.clientX;startScroll=chart.scrollLeft;chart.classList.add("dragging");chart.setPointerCapture?.(e.pointerId)});
-  chart.addEventListener("pointermove",e=>{if(dragging){if(Math.abs(e.clientX-startX)>8)moved=true;chart.scrollLeft=startScroll-(e.clientX-startX)}});
-  const stop=()=>{dragging=false;chart.classList.remove("dragging")};
-  chart.addEventListener("pointerup",stop);chart.addEventListener("pointercancel",stop);chart.addEventListener("pointerleave",()=>{if(dragging)stop()});
+  let pointerDown=false,dragging=false,moved=false,startX=0,startY=0,startScroll=0;
+  chart.addEventListener("pointerdown",e=>{pointerDown=true;dragging=false;moved=false;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft});
+  chart.addEventListener("pointermove",e=>{
+   if(!pointerDown)return;
+   const dx=e.clientX-startX,dy=e.clientY-startY;
+   if(!dragging){
+    if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+    if(Math.abs(dy)>Math.abs(dx)){pointerDown=false;return;}
+    dragging=true;moved=true;chart.classList.add("dragging");chart.setPointerCapture?.(e.pointerId);e.preventDefault();
+   }
+   if(dragging){chart.scrollLeft=startScroll-dx;e.preventDefault();}
+  },{passive:false});
+  const stop=()=>{pointerDown=false;dragging=false;chart.classList.remove("dragging")};
+  chart.addEventListener("pointerup",stop);chart.addEventListener("pointercancel",stop);chart.addEventListener("lostpointercapture",stop);
   chart.addEventListener("wheel",e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){chart.scrollLeft+=e.deltaY;e.preventDefault()}},{passive:false});
  }
  renderWindow();
