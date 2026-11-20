@@ -208,7 +208,7 @@ button:active{transform:scale(.98)}
 .transfer-side-value{height:54px;min-height:54px;box-sizing:border-box}
 .transfer-swap{align-self:end!important;justify-self:center!important;margin:0 auto 1px!important;width:52px;height:52px;min-width:52px;border-radius:50%;display:grid;place-items:center;line-height:1;font-family:Arial,sans-serif;font-size:25px;font-weight:500;padding:0!important;transform:none!important;position:relative}
 .transfer-swap::first-letter{position:relative;top:-1px}
-.tx-toggle button{top:50%!important;transform:translateY(-50%)!important;height:30px!important;margin:0!important}
+.tx-toggle button{top:3px!important;transform:none!important;height:calc(100% - 6px)!important;margin:0!important;border-radius:999px!important}
 .tx-toggle{box-sizing:border-box;align-items:center}
 .tx-toggle span{height:100%;align-items:center!important;line-height:1}
 @media(max-width:600px){.transfer-row{grid-template-columns:minmax(0,1fr) 50px minmax(0,1fr)!important;gap:7px!important}.transfer-side-value{height:50px;min-height:50px;padding:8px 4px}.transfer-swap{width:46px;height:46px;min-width:46px;font-size:22px}}
@@ -671,10 +671,7 @@ function openCat(id=null){
    <div class="modal-heading-row"><h2>${old?"Изменить":"Новая"} категория</h2><button type="button" class="modal-close" id="close" aria-label="Закрыть">×</button></div>
    <form id="catForm">
     <div class="field"><label>Название</label><input name="name" required maxlength="45" value="${esc(old?.name||"")}"></div>
-    <div class="field"><label>Тип</label><select name="type" ${old?"disabled":""}>
-     <option value="expense" ${old?.type!=="income"?"selected":""}>Расход</option>
-     <option value="income" ${old?.type==="income"?"selected":""}>Доход</option>
-    </select></div>
+    <div class="field"><label>Тип</label><div class="stat-toggle-control tx-toggle" id="catTypeToggle" data-mode="${old?.type||"expense"}" ${old? 'aria-disabled="true"':''}><span data-value="expense">Расход</span><span data-value="income">Доход</span><button type="button" aria-hidden="true" tabindex="-1"></button></div><input type="hidden" name="type" id="catType" value="${old?.type||"expense"}"></div>
     <div class="field"><label>Значок</label>
      <div class="row" style="align-items:center;gap:10px">
       <span id="emojiSelected" class="emoji-selected">${iconMarkup(selectedEmoji)}</span>
@@ -697,6 +694,10 @@ function openCat(id=null){
   </div>
  </div>`;
  $("close").onclick=closeModal;
+ if(!old){
+  const setCatType=v=>{$("catType").value=v;$("catTypeToggle").dataset.mode=v;};
+  document.querySelectorAll("#catTypeToggle span").forEach(b=>b.onclick=()=>setCatType(b.dataset.value));
+ }
  $("toggleEmojiPicker").onclick=()=>{
   const modal=document.createElement("div");modal.className="emoji-modal";
   modal.innerHTML=`<div class="emoji-modal-head"><strong>Выбери значок</strong><button type="button" class="modal-close" id="emojiCancel" aria-label="Закрыть">×</button></div><div class="emoji-modal-list" id="emojiList"><div class="keyboard-emoji"><label for="customEmoji">Можно вставить эмодзи с клавиатуры</label><input id="customEmoji" type="text" maxlength="8" placeholder="Вставь выбранный эмодзи" value=""></div>${Object.entries(emojiGroups).map(([group,emojis])=>`<div class="emoji-group">${group}</div><div class="emoji-grid">${emojis.map(em=>`<button type="button" class="emoji-option ${em===($("emojiValue").value) ? "selected":""}" data-emoji="${em}">${iconMarkup(em)}</button>`).join("")}</div>`).join("")}</div><div class="emoji-modal-footer"><button type="button" id="emojiChoose">Выбрать</button></div>`;
