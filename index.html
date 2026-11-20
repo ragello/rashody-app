@@ -155,7 +155,10 @@ button,.card,.chip,.row{transition:transform .16s ease,box-shadow .16s ease,back
 button:active{transform:scale(.98)}
 .card{animation:none}
 .summary-card{transition:box-shadow .18s ease,transform .18s ease}
-.balance-card:hover{transform:translateY(-1px)}
+.balance-card:hover{transform:none}
+.balance-card{will-change:auto}
+.balance-details{contain:layout;overflow:hidden}
+.balance-details>div{min-height:0}
 .modal-backdrop{position:fixed;inset:0;background:#24203888;display:grid;place-items:center;padding:12px;z-index:1000}
 .modal-backdrop>.card{animation:none}
 .transfer-swap{width:42px;height:42px;padding:0;border-radius:50%;background:var(--purple2);color:var(--purple);font-size:20px;display:grid;place-items:center;align-self:center}
@@ -329,7 +332,7 @@ function buildStatsMarkup(){
   <div style="text-align:center;margin-bottom:10px"><div class="muted" style="font-size:14px;font-weight:700">Статистика за</div></div>
   <div class="month-nav"><button class="secondary" id="prevMonth">‹</button><h2 style="margin:0;text-align:center;flex:1">${monthLabel(statsMonth)}</h2><button class="secondary" id="nextMonth">›</button></div>
   <section class="section"><h2>Показатели месяца</h2><div class="card"><div class="stat-pair"><div class="stat-mini"><span class="label">Операций</span><strong>${mt.length}</strong></div><div class="stat-mini"><span class="label">Средний расход в день</span><strong>${money(avg)}</strong></div><div class="stat-mini"><span class="label">Самый крупный расход</span><strong>${money(largest)}</strong></div><div class="stat-mini"><span class="label">Доля остатка от дохода</span><strong>${inc>0?savePercent+"%":"—"}</strong></div></div></div></section>
-  <section class="section"><div class="between row"><h2>Структура за месяц</h2></div><div class="stat-toggle-row"><div class="stat-toggle-control" data-stat="pie" data-mode="expense"><span>Расходы</span><span>Доходы</span><button type="button" aria-hidden="true"></button></div></div><div class="card" id="pieStatCard"></div></section>
+  <section class="section"><div class="between row"><h2 id="pieStatTitle">Структура расходов за месяц</h2></div><div class="stat-toggle-row"><div class="stat-toggle-control" data-stat="pie" data-mode="expense"><span>Расходы</span><span>Доходы</span><button type="button" aria-hidden="true"></button></div></div><div class="card" id="pieStatCard"></div></section>
   <section class="section"><div class="between row"><h2>По дням</h2><span class="muted" id="dailyMonthLabel">${monthLabel(statsMonth)}</span></div><div class="stat-toggle-row"><div class="stat-toggle-control" data-stat="daily" data-mode="expense"><span>Расходы</span><span>Доходы</span><button type="button" aria-hidden="true"></button></div></div><div class="card"><div class="daily-chart" id="dailyChart"></div><div class="month-position" aria-hidden="true"><span id="monthPositionThumb"></span></div><div class="day-total" id="dayTotal"></div><div id="dayBreakdown" class="day-breakdown"></div></div></section>
  </section>`;
 }
@@ -342,6 +345,8 @@ function renderStats(){
  const stops=grouped.map(c=>{const a=angle;angle+=totalCat?c.sum/totalCat*360:0;return `${color(c.color)} ${a}deg ${angle}deg`});
  const pieStyle=stops.length?`background:conic-gradient(${stops.join(",")})`:"background:#eeeaf5";
  const title=mode.pie==="expense"?"Расходы":"Доходы";
+ const pieTitle=$("pieStatTitle");
+ if(pieTitle)pieTitle.textContent=`Структура ${mode.pie==="expense"?"расходов":"доходов"} за месяц`;
  const card=$("pieStatCard");
  if(card)card.innerHTML=grouped.length?`<div class="pie-wrap"><div class="pie" style="${pieStyle}"><div class="pie-hole"><div><strong>${money(totalCat)}</strong><div class="muted">Всего ${title.toLowerCase()}</div></div></div>${(()=>{let a=0;return grouped.map(c=>{const mid=a+(c.sum/(totalCat||1)*360)/2;a+=c.sum/(totalCat||1)*360;const r=mid*Math.PI/180,x=50+37*Math.sin(r),y=50-37*Math.cos(r);return `<span class="pie-emoji" style="left:${x}%;top:${y}%" title="${esc(c.name)}">${iconMarkup(c.emoji)}</span>`}).join("")})()}</div></div><div class="legend-table">${grouped.map(c=>`<div class="legend-row"><span class="legend-name"><i class="legend-dot" style="background:${color(c.color)}"></i>${iconMarkup(c.emoji)} ${esc(c.name)}</span><strong>${money(c.sum)}</strong><strong>${Math.round(c.sum/(totalCat||1)*100)}%</strong></div>`).join("")}</div>`:`<div class="empty">Добавь ${mode.pie==="expense"?"расходы":"доходы"}, чтобы увидеть диаграмму</div>`;
  renderDailyStats();
@@ -700,8 +705,6 @@ onAuthStateChanged(auth,async u=>{
 });
 
 document.addEventListener('click',function(e){
-  const b=e.target.closest('#balanceSummary');
-  if(b){const d=document.getElementById('balanceDetails');if(d)d.classList.toggle('open');}
   const t=e.target.closest('.stat-toggle-control');
   if(t){
     const r=t.getBoundingClientRect(), mode=(e.clientX-r.left)<r.width/2?'expense':'income';
@@ -719,8 +722,16 @@ function usedCategoryColors(exceptId){
   return s;
 }
 function suggestCategoryColor(exceptId){
-  const p=['#7C3AED','#2563EB','#0EA5E9','#10B981','#F59E0B','#F97316','#EF4444','#EC4899','#14B8A6','#8B5CF6','#84CC16','#06B6D4'];
-  const u=usedCategoryColors(exceptId); return p.find(c=>!u.has(c.toLowerCase()))||p[0];
+  const u=usedCategoryColors(exceptId);
+  const candidates=[];
+  for(let i=0;i<36;i++)candidates.push(hsvToHex(Math.round(i*10),0.68,0.90));
+  const free=candidates.find(c=>!u.has(c.toLowerCase()));
+  if(free)return free;
+  for(let i=0;i<72;i++){
+    const c=hsvToHex(Math.round(i*5),0.58,0.92);
+    if(!u.has(c.toLowerCase()))return c;
+  }
+  return hsvToHex(0,0.65,0.9);
 }
 function hexToHsv(hex){
   hex=hex.replace('#','');let r=parseInt(hex.slice(0,2),16)/255,g=parseInt(hex.slice(2,4),16)/255,b=parseInt(hex.slice(4,6),16)/255;
