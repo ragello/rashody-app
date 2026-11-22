@@ -811,16 +811,19 @@ function usedCategoryColors(exceptId){
   return s;
 }
 function suggestCategoryColor(exceptId){
-  const u=usedCategoryColors(exceptId);
+  const used=Array.from(usedCategoryColors(exceptId)).map(c=>hexToHsv(c)[0]);
   const candidates=[];
-  for(let i=0;i<36;i++)candidates.push(hsvToHex(Math.round(i*10),0.68,0.90));
-  const free=candidates.find(c=>!u.has(c.toLowerCase()));
-  if(free)return free;
-  for(let i=0;i<72;i++){
-    const c=hsvToHex(Math.round(i*5),0.58,0.92);
-    if(!u.has(c.toLowerCase()))return c;
-  }
-  return hsvToHex(0,0.65,0.9);
+  for(let i=0;i<72;i++)candidates.push(Math.round(i*5));
+  if(!used.length)return hsvToHex(0,0.68,0.90);
+  let bestHue=0,bestDistance=-1;
+  candidates.forEach(h=>{
+    const minDistance=Math.min(...used.map(u=>{
+      const d=Math.abs(h-u);
+      return Math.min(d,360-d);
+    }));
+    if(minDistance>bestDistance){bestDistance=minDistance;bestHue=h;}
+  });
+  return hsvToHex(bestHue,0.68,0.90);
 }
 function hexToHsv(hex){
   hex=hex.replace('#','');let r=parseInt(hex.slice(0,2),16)/255,g=parseInt(hex.slice(2,4),16)/255,b=parseInt(hex.slice(4,6),16)/255;
