@@ -430,10 +430,30 @@ function renderDailyStats(){
  if(!chart.dataset.dragBound){
   chart.dataset.dragBound="1";
   let pointerId=null,startX=0,startY=0,startScroll=0,horizontalDrag=false,axisChosen=false;
+  let dragSamples=[],inertiaFrame=0;
+  const stopInertia=()=>{if(inertiaFrame){cancelAnimationFrame(inertiaFrame);inertiaFrame=0;}};
+  const addDragSample=x=>{
+   const now=performance.now();dragSamples.push({x,t:now});
+   dragSamples=dragSamples.filter(p=>now-p.t<=110);
+  };
+  const runInertia=initialVelocity=>{
+   stopInertia();
+   let velocity=Math.max(-2,Math.min(2,initialVelocity));
+   if(Math.abs(velocity)<0.12)return;
+   let lastTime=performance.now();
+   const tick=now=>{
+    const dt=Math.min(32,now-lastTime);lastTime=now;
+    chart.scrollLeft+=velocity*dt;
+    velocity*=Math.pow(0.92,dt/16.67);
+    if(Math.abs(velocity)<0.035){inertiaFrame=0;return;}
+    inertiaFrame=requestAnimationFrame(tick);
+   };
+   inertiaFrame=requestAnimationFrame(tick);
+  };
   chart.addEventListener("pointerdown",e=>{
    if(e.pointerType==="mouse"&&e.button!==0)return;
-   pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;
-   horizontalDrag=false;axisChosen=false;
+   stopInertia();pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;
+   horizontalDrag=false;axisChosen=false;dragSamples=[];addDragSample(e.clientX);
    // Capture immediately: gestures beginning on a bar remain tracked by the chart.
    try{chart.setPointerCapture(e.pointerId)}catch(_){}
   });
@@ -447,14 +467,19 @@ function renderDailyStats(){
     horizontalDrag=true;suppressDayClick=true;chart.classList.add("dragging");
    }
    if(!horizontalDrag)return;
-   chart.scrollLeft=startScroll-dx;
-   e.preventDefault();
+   addDragSample(e.clientX);
+   // While the finger is down, movement remains exactly one-to-one.
+   chart.scrollLeft=startScroll-dx;e.preventDefault();
   },{passive:false});
   const finishDrag=e=>{
    if(pointerId===null||(e&&e.pointerId!==pointerId))return;
-   const wasDragging=horizontalDrag;
+   const wasDragging=horizontalDrag;let velocity=0;
+   if(wasDragging&&dragSamples.length>=2){
+    const first=dragSamples[0],last=dragSamples[dragSamples.length-1],elapsed=last.t-first.t;
+    if(elapsed>0)velocity=-(last.x-first.x)/elapsed;
+   }
    pointerId=null;horizontalDrag=false;axisChosen=false;chart.classList.remove("dragging");
-   if(wasDragging)setTimeout(()=>{suppressDayClick=false;},400);
+   if(wasDragging){runInertia(velocity);setTimeout(()=>{suppressDayClick=false;},450);}
   };
   chart.addEventListener("pointerup",finishDrag);
   chart.addEventListener("pointercancel",finishDrag);
