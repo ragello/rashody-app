@@ -192,7 +192,8 @@ button:active{transform:scale(.98)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* Final interaction overrides */
-.daily-chart{display:flex!important;gap:10px!important;align-items:end!important;height:180px!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-y!important;cursor:grab!important;user-select:none;-webkit-user-select:none}
+.daily-chart{display:flex!important;gap:10px!important;align-items:end!important;height:180px!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:pan-y!important;overscroll-behavior-x:contain;scroll-behavior:auto!important;-webkit-overflow-scrolling:touch;cursor:grab!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.daily-chart,.daily-chart *{user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;-webkit-user-drag:none}
 .daily-chart.dragging{cursor:grabbing!important}
 .day-col{height:100%!important;min-width:42px!important;flex:0 0 42px!important}
 .tx-toggle{width:100%;height:42px}
@@ -431,12 +432,10 @@ function renderDailyStats(){
   let pointerId=null,startX=0,startY=0,startScroll=0,horizontalDrag=false,axisChosen=false;
   chart.addEventListener("pointerdown",e=>{
    if(e.pointerType==="mouse"&&e.button!==0)return;
-   pointerId=e.pointerId;
-   startX=e.clientX;
-   startY=e.clientY;
-   startScroll=chart.scrollLeft;
-   horizontalDrag=false;
-   axisChosen=false;
+   pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;
+   horizontalDrag=false;axisChosen=false;
+   // Capture immediately: gestures beginning on a bar remain tracked by the chart.
+   try{chart.setPointerCapture(e.pointerId)}catch(_){}
   });
   chart.addEventListener("pointermove",e=>{
    if(pointerId!==e.pointerId)return;
@@ -445,29 +444,22 @@ function renderDailyStats(){
     if(Math.abs(dx)<4&&Math.abs(dy)<4)return;
     axisChosen=true;
     if(Math.abs(dy)>Math.abs(dx)){pointerId=null;return;}
-    horizontalDrag=true;
-    suppressDayClick=true;
-    chart.classList.add("dragging");
-    try{chart.setPointerCapture(e.pointerId)}catch(_){}
+    horizontalDrag=true;suppressDayClick=true;chart.classList.add("dragging");
    }
    if(!horizontalDrag)return;
-   // One-to-one: the chart moves exactly as far as the finger moves.
    chart.scrollLeft=startScroll-dx;
    e.preventDefault();
   },{passive:false});
   const finishDrag=e=>{
    if(pointerId===null||(e&&e.pointerId!==pointerId))return;
    const wasDragging=horizontalDrag;
-   pointerId=null;
-   horizontalDrag=false;
-   axisChosen=false;
-   chart.classList.remove("dragging");
-   // Do not add momentum, snapping, paging, or a release-time scroll.
-   if(wasDragging)setTimeout(()=>{suppressDayClick=false;},250);
+   pointerId=null;horizontalDrag=false;axisChosen=false;chart.classList.remove("dragging");
+   if(wasDragging)setTimeout(()=>{suppressDayClick=false;},400);
   };
   chart.addEventListener("pointerup",finishDrag);
   chart.addEventListener("pointercancel",finishDrag);
   chart.addEventListener("lostpointercapture",finishDrag);
+  chart.addEventListener("dragstart",e=>e.preventDefault());
   chart.addEventListener("wheel",e=>{const delta=Math.abs(e.deltaY)>Math.abs(e.deltaX)?e.deltaY:e.deltaX;if(delta){chart.scrollLeft+=delta*1.8;e.preventDefault();}},{passive:false});
  }
  renderWindow();
