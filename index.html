@@ -428,10 +428,10 @@ function renderDailyStats(){
  };
  if(!chart.dataset.dragBound){
   chart.dataset.dragBound="1";
-  let pointerId=null,startX=0,startY=0,startScroll=0,horizontalDrag=false,axisChosen=false;
+  let pointerId=null,startX=0,startY=0,startScroll=0,lastDx=0,horizontalDrag=false,axisChosen=false;
   chart.addEventListener("pointerdown",e=>{
    if(e.pointerType==="mouse"&&e.button!==0)return;
-   pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;horizontalDrag=false;axisChosen=false;
+   pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;startScroll=chart.scrollLeft;lastDx=0;horizontalDrag=false;axisChosen=false;
   });
   chart.addEventListener("pointermove",e=>{
    if(pointerId!==e.pointerId)return;
@@ -444,11 +444,19 @@ function renderDailyStats(){
     try{chart.setPointerCapture(e.pointerId)}catch(_){}
    }
    if(!horizontalDrag)return;
-   chart.scrollLeft=startScroll-dx;e.preventDefault();
+   lastDx=dx;
+   chart.scrollLeft=startScroll-dx;
+   e.preventDefault();
   },{passive:false});
   const finishDrag=e=>{
    if(pointerId===null||(e&&e.pointerId!==pointerId))return;
-   const wasDragging=horizontalDrag;pointerId=null;horizontalDrag=false;chart.classList.remove("dragging");
+   const wasDragging=horizontalDrag,dx=lastDx;
+   pointerId=null;horizontalDrag=false;chart.classList.remove("dragging");
+   if(wasDragging&&Math.abs(dx)>14){
+    const step=Math.max(84,Math.round(chart.clientWidth*0.55));
+    const target=chart.scrollLeft+(dx<0?step:-step);
+    chart.scrollLeft=Math.max(0,Math.min(target,chart.scrollWidth-chart.clientWidth));
+   }
    if(wasDragging)setTimeout(()=>{suppressDayClick=false;},180);
   };
   chart.addEventListener("pointerup",finishDrag);chart.addEventListener("pointercancel",finishDrag);chart.addEventListener("lostpointercapture",finishDrag);
